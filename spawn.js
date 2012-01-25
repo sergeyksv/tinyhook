@@ -92,14 +92,15 @@ exports.spawn = function (hooks, callback) {
 			// has **exactly** one key. We extract this Hook prototype and instantiate it.
 			//
 			keys = Object.keys(self.children[hook.name].module);
-			self.children[hook.name].Hook  = self.children[hook.name].module[keys[0]];
-			self.children[hook.name]._hook = new (self.children[hook.name].Hook)(hook);
+			var mysun = self.children[hook.name];
+			mysun.Hook  = mysun.module[keys[0]];
+			mysun._hook = new (mysun.Hook)(hook);
+			mysun._hook.start();
 
 			//
 			// When the hook has fired the `hook::ready` event then continue.
 			//
-			self.children[hook.name]._hook.once('hook::ready', next.bind(null, null));
-			self.children[hook.name]._hook.connect(self);
+			mysun._hook.once('hook::ready', next.bind(null, null));
 		}
 		else {
 			//
