@@ -4,8 +4,15 @@ var util = require ('util');
 var nssocket = require('nssocket');
 
 var Hook = function (options) {
+	if (!options) options = {};
+	
+	// some hookio flags that we support
 	this.listening = false;
 	
+	// grab som options that we support
+	this.local = options.local || false;
+	
+	// default eventemitter options
 	var EventEmitterProps = {
 		delimiter: "::",
 		wildcard: true
