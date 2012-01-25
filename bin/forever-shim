@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+
+var argv = require('optimist').argv;
+
+var hookPath;
+
+var path = require('path');
+
+if (argv['src']) {
+  hookPath = path.resolve('./node_modules/' + argv['src']);
+}
+
+var Hook = require(hookPath);
+
+var keys = Object.keys(Hook);
+
+//
+// Remark: Assume the first class exported extends from Hook
+//
+
+//
+// TODO: Refactor this convention, it's a bit brittle
+//
+var hookClass = keys[0];
+if (keys.length > 1) {
+  hookClass = 'Hook';
+}
+var hook = new Hook[hookClass](argv);
+
+hook.start();
