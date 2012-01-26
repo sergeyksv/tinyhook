@@ -48,7 +48,11 @@ var Hook = function (options) {
 			socket.data('tinyhook::on', function (d) {
 				if (client.proxy.listeners(d.type).length==0) {
 					client.proxy.on(d.type, function (data) {
-						client.socket.send('tinyhook::pushemit', data);
+						client.socket.send('tinyhook::pushemit', data, function (err) {
+							// silently ignoring any errors for now
+							// messages can be lost 
+							// client can restore connection later
+						});
 					})
 				}
 			})
@@ -90,7 +94,7 @@ var Hook = function (options) {
 			// purge known event types
 			_(eventTypes).keys().forEach(function(type) {
 				client.send(['tinyhook','on'],{type:type});
-			});			
+			});
 		});
 		// tranlate pushed emit to local one
 		client.data('tinyhook::pushemit',function (d) {
@@ -106,28 +110,28 @@ var Hook = function (options) {
 			var newEventTypes;
 			_(eventTypes).keys().forEach(function(type) {
 				if (self.listeners(type).length>0) {
-					client.send(['tinyhook','off'],{type:type});
+					client.send(['tinyhook','off'],{type:type}, function () {});
 					delete eventTypes[type];
 				}
-			});		
-		}, 60000);	
+			});
+		}, 60000);
 	}
 	
 	// hook into core events to dispatch events as required
 	this.emit = function (event,data,callback) {
 		if (client) {
-			client.send(['tinyhook','emit'],{event:event,data:data});
+			client.send(['tinyhook','emit'],{event:event,data:data}, function () {});
 		}
 		// still preserver local processing
 		EventEmitter.prototype.emit.apply(self,arguments);
 	}
 	this.on = function (type, listener) {
 		if (client) {
-			client.send(['tinyhook','on'],{type:type});
+			client.send(['tinyhook','on'],{type:type}, function () {});
 		};
 		if (eventTypes)
 			eventTypes[type]=1;
-		EventEmitter.prototype.on.apply(self,[type, listener]);			
+		EventEmitter.prototype.on.apply(self,[type, listener]);
 	}
 }
 
