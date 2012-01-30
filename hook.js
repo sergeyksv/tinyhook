@@ -8,6 +8,7 @@ var Hook = function (options) {
 	
 	// some hookio flags that we support
 	this.listening = false;
+	this.ready = false;
 	
 	// grab som options that we support
 	this.local = options.local || false;
@@ -76,6 +77,7 @@ var Hook = function (options) {
 		})
 		server.on('listening', function () {
 			self.listening = true;
+			self.ready = true;
 			delete eventTypes;
 			EventEmitter.prototype.emit.apply(self,['hook::ready']);
 		})
@@ -84,24 +86,26 @@ var Hook = function (options) {
 	// if server start fails we attempt to start in client mode
 	function startClient() {
 		delete clients;
-		delete uid;
 		client = new nssocket.NsSocket({reconnect:true});
 		client.connect(1976);
 		// when connection started we sayng hello and push
 		// all known event types we have
 		client.on('start', function () {
-			client.send(['tinyhook','hello'],{name:options.name});
+			client.send(['tinyhook','hello'],{protoVersion:1,name:options.name});
 			// purge known event types
 			_(eventTypes).keys().forEach(function(type) {
 				client.send(['tinyhook','on'],{type:type});
 			});
+			if (!self.ready) {
+				// simulate hook:ready
+				self.ready = true;
+				EventEmitter.prototype.emit.apply(self,['hook::ready']);
+			}
 		});
 		// tranlate pushed emit to local one
 		client.data('tinyhook::pushemit',function (d) {
 			EventEmitter.prototype.emit.apply(self,[d.event,d.data]);
 		});
-		// simulate hook:ready
-		EventEmitter.prototype.emit.apply(self,['hook::ready']);
 		
 		// every XX seconds do garbage collect and notify server about
 		// event we longer not listening. Realtime notification is not necessary
@@ -120,7 +124,7 @@ var Hook = function (options) {
 	// hook into core events to dispatch events as required
 	this.emit = function (event,data,callback) {
 		if (client) {
-			client.send(['tinyhook','emit'],{event:event,data:data}, function () {});
+			client.send(['tinyhook','emit'],{eid:uid++,event:event,data:data}, function () {});
 		}
 		// still preserver local processing
 		EventEmitter.prototype.emit.apply(self,arguments);
