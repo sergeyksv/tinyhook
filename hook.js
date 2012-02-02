@@ -35,6 +35,9 @@ var Hook = function (options) {
 			var cliId = uid; uid++;
 			var client = {id:cliId, name: "hook_"+cliId, socket:socket, proxy:new EventEmitter(EventEmitterProps)};
 			clients[cliId] = client;
+			// ignore errors, close will happens in anyway
+			socket.on('error', function () {
+			})
 			// clean context on client lost
 			socket.on('close', function () {
 				delete clients[cliId];
@@ -49,11 +52,7 @@ var Hook = function (options) {
 			socket.data('tinyhook::on', function (d) {
 				if (client.proxy.listeners(d.type).length==0) {
 					client.proxy.on(d.type, function (data) {
-						client.socket.send('tinyhook::pushemit', data, function (err) {
-							// silently ignoring any errors for now
-							// messages can be lost 
-							// client can restore connection later
-						});
+						client.socket.send('tinyhook::pushemit', data);
 					})
 				}
 			})
@@ -114,7 +113,7 @@ var Hook = function (options) {
 			var newEventTypes;
 			_(eventTypes).keys().forEach(function(type) {
 				if (self.listeners(type).length>0) {
-					client.send(['tinyhook','off'],{type:type}, function () {});
+					client.send(['tinyhook','off'],{type:type});
 					delete eventTypes[type];
 				}
 			});
