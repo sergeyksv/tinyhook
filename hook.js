@@ -6,6 +6,11 @@ var nssocket = require('nssocket');
 var Hook = function (options) {
 	if (!options) options = {};
 	
+	// some important options
+	this.name = options.name || options['hook-name'] || 'guest';
+	this.host = options.host || options['hook-host'] || 'localhost';
+	this.port = options.port || options['hook-port'] || 1976;
+	
 	// some hookio flags that we support
 	this.listening = false;
 	this.ready = false;
@@ -57,7 +62,7 @@ var Hook = function (options) {
 				}
 			})
 			socket.data('tinyhook::off', function (d) {
-				client.proxy.on(d.type);
+				client.proxy.removeAllListeners(d.type);
 			})
 			// once we receive any event from child, deliver it to all clients
 			// with smart filtering which is provided by EventEmitter2
@@ -80,17 +85,17 @@ var Hook = function (options) {
 			delete eventTypes;
 			EventEmitter.prototype.emit.apply(self,['hook::ready']);
 		})
-		server.listen(1976);
+		server.listen(self.port, self.host);
 	}
 	// if server start fails we attempt to start in client mode
 	function startClient() {
 		delete clients;
 		client = new nssocket.NsSocket({reconnect:true});
-		client.connect(1976);
+		client.connect(self.port, self.host);
 		// when connection started we sayng hello and push
 		// all known event types we have
 		client.on('start', function () {
-			client.send(['tinyhook','hello'],{protoVersion:1,name:options.name});
+			client.send(['tinyhook','hello'],{protoVersion:1,name:self.name});
 			// purge known event types
 			_(eventTypes).keys().forEach(function(type) {
 				client.send(['tinyhook','on'],{type:type});
@@ -112,7 +117,10 @@ var Hook = function (options) {
 		setInterval(function () {
 			var newEventTypes;
 			_(eventTypes).keys().forEach(function(type) {
-				if (self.listeners(type).length>0) {
+				var listeners = self.listeners(type);
+				if (listeners == null || listeners.length == 0) {
+					// no more listerner for this event
+					// push this to server
 					client.send(['tinyhook','off'],{type:type});
 					delete eventTypes[type];
 				}
