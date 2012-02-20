@@ -6,17 +6,16 @@ var nssocket = require('nssocket');
 var Hook = function (options) {
 	if (!options) options = {};
 	
-	// some important options
-	this.name = options.name || options['hook-name'] || 'guest';
-	this.host = options.host || options['hook-host'] || 'localhost';
-	this.port = options.port || options['hook-port'] || 1976;
+	// some options, name conversion close to hook.io
+	this.name = this.name || options.name || options['hook-name'] || 'no-name';
+	this.silent = this.silent || options.silent || true;
+	this.local = this.local || options.local || false;
+	this['hook-host'] = this['hook-host'] || options.host || options['hook-host'] || 'localhost';
+	this['hook-port'] = this['hook-port'] || options.port || options['hook-port'] || 1976;
 	
 	// some hookio flags that we support
 	this.listening = false;
 	this.ready = false;
-	
-	// grab som options that we support
-	this.local = options.local || false;
 	
 	// default eventemitter options
 	var EventEmitterProps = {
@@ -85,13 +84,13 @@ var Hook = function (options) {
 			delete eventTypes;
 			EventEmitter.prototype.emit.apply(self,['hook::ready']);
 		})
-		server.listen(self.port, self.host);
+		server.listen(self['hook-port'], self['hook-host']);
 	}
 	// if server start fails we attempt to start in client mode
 	function startClient() {
 		delete clients;
 		client = new nssocket.NsSocket({reconnect:true});
-		client.connect(self.port, self.host);
+		client.connect(self['hook-port'], self['hook-host']);
 		// when connection started we sayng hello and push
 		// all known event types we have
 		client.on('start', function () {

@@ -17,7 +17,7 @@ hook.io concept and in some cases it can transparently replace hook.io.
 
 Reliable for us means that application should be able to consists from 
 dozens of processes running hooks and handle millions of messages a day
-witout craching, hight CPU usage and hight memory consumption. On the
+witout crashes, hight CPU usage and hight memory consumption. On the
 momemt of creation it was 2-4 times more effective for CPU usage, memory
 consumption and latency of message delivery.
 
