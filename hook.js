@@ -10,7 +10,7 @@ var Hook = function (options) {
 	this.name = this.name || options.name || options['hook-name'] || 'no-name';
 	this.silent = this.silent || options.silent || true;
 	this.local = this.local || options.local || false;
-	this['hook-host'] = this['hook-host'] || options.host || options['hook-host'] || 'localhost';
+	this['hook-host'] = this['hook-host'] || options.host || options['hook-host'] || '127.0.0.1';
 	this['hook-port'] = this['hook-port'] || options.port || options['hook-port'] || 1976;
 	
 	// some hookio flags that we support
@@ -30,11 +30,19 @@ var Hook = function (options) {
 	var client = null;
 	var uid = 1;
 	var eventTypes = {};
+	var server = null;
 	
 	// Function will attempt to start server, if it fails we assume that server already available
 	// then it start in client mode. So first hook will became super hook, overs its clients
-	this.start = function () {
-		var server = nssocket.createServer(function (socket) {
+	this.start = function (options, cb) {
+		options = options || {};
+		if (typeof options === 'function') {
+			if (cb==null) cb = options;
+			options = {};
+		}
+		cb = cb || function () {};
+		
+		server = nssocket.createServer(function (socket) {
 			// assign unique client id
 			var cliId = uid; uid++;
 			var client = {id:cliId, name: "hook_"+cliId, socket:socket, proxy:new EventEmitter(EventEmitterProps)};
@@ -71,24 +79,34 @@ var Hook = function (options) {
 					cli.proxy.emit(d.event,d);
 				});
 				// don't forget about ourselves
-				self.emit(d.event, d.data);
+				EventEmitter.prototype.emit.apply(self,[d.event, d.data]);
 			});
 		});
 		server.on('error', function (e) {
+			server = null;
 			if (e.code == 'EADDRINUSE')
-				startClient();
+				startClient(cb);
+			else
+				cb(e);
+		})
+		server.on('close', function (e) {
+			server = null;
+			self.listening = false;
+			self.ready = false;
 		})
 		server.on('listening', function () {
 			self.listening = true;
 			self.ready = true;
-			delete eventTypes;
+			cb();
 			EventEmitter.prototype.emit.apply(self,['hook::ready']);
 		})
 		server.listen(self['hook-port'], self['hook-host']);
 	}
+	
 	// if server start fails we attempt to start in client mode
-	function startClient() {
-		delete clients;
+	function startClient(cb) {
+		// since we using reconnect, will callback rightaway
+		cb();
 		client = new nssocket.NsSocket({reconnect:true});
 		client.connect(self['hook-port'], self['hook-host']);
 		// when connection started we sayng hello and push
@@ -105,6 +123,10 @@ var Hook = function (options) {
 				EventEmitter.prototype.emit.apply(self,['hook::ready']);
 			}
 		});
+		client.on('close', function() {
+			self.ready = false;
+			client = null;
+		})
 		// tranlate pushed emit to local one
 		client.data('tinyhook::pushemit',function (d) {
 			EventEmitter.prototype.emit.apply(self,[d.event,d.data]);
@@ -127,10 +149,30 @@ var Hook = function (options) {
 		}, 60000);
 	}
 	
+	// function to stop the hook
+	this.stop = function (cb) {
+		var cb = cb || function () {};
+		if (server) {
+			server.on('close',cb);
+			server.close();
+		} else if (client) {
+			client.once('close',cb);
+			client.end();
+		} else cb();
+	}
+	
 	// hook into core events to dispatch events as required
 	this.emit = function (event,data,callback) {
+		// on client send event to master
 		if (client) {
 			client.send(['tinyhook','emit'],{eid:uid++,event:event,data:data}, function () {});
+		}
+		// send to clients event emitted on server (master)
+		if (server) {
+			var d={event: this.name+"::"+event, data: data};
+			_(clients).forEach(function (cli) {
+				cli.proxy.emit(d.event,d);
+			});
 		}
 		// still preserver local processing
 		EventEmitter.prototype.emit.apply(self,arguments);

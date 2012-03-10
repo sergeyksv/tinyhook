@@ -1,7 +1,7 @@
 {
   "author": "Sergey Korotkov <sergeyksv@gmail.com>",
   "name": "tinyhook",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "repository": {
     "type": "git",
     "url": "git://github.com/sergeyksv/tinyhook.git"
@@ -24,6 +24,7 @@
     "async":"0.1.x"
   },
   "devDependencies": {
-    "forever": "0.8.x"    
+    "forever": "0.8.x",
+    "vows": "0.6.x"    
   }
 }
