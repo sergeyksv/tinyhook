@@ -28,7 +28,8 @@ Enjoy!
 
 ## hook.io compatibility notes
 We try to be as close as possible to hook.io functionality. However we add things
-mostly on demand and only if they make sense. What we do support:
+mostly on demand and only if they make sense. What is supported:
+
 * name space rules - '::' is delimiter, event from client is prefixed by its name
 * 'hook::ready' event
 * 'children::ready', 'children::spawned' events for spawn
