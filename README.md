@@ -17,7 +17,7 @@ hook.io concept and in some cases it can transparently replace hook.io.
 
 Reliable for us means that application should be able to consists from 
 dozens of processes running hooks and handle millions of messages a day
-witout crashes, hight CPU usage and hight memory consumption. On the
+without issues, hight CPU usage and hight memory consumption. On the
 momemt of creation it was 2-4 times more effective for CPU usage, memory
 consumption and latency of message delivery.
 
@@ -25,6 +25,25 @@ It will be honest to say that it is build with help of light weight nssocket
 library which is build by authors of hook.io. I would say many thanks to them!
 
 Enjoy!
+
+## hook.io compatibility notes
+We try to be as close as possible to hook.io functionality. However we add things
+mostly on demand and only if they make sense. What we do support:
+* name space rules - '::' is delimiter, event from client is prefixed by its name
+* 'hook::ready' event
+* 'children::ready', 'children::spawned' events for spawn
+* 'hook-port','hook-host','name', 'silent','local' options
+* 'start', 'stop' methods
+* 'hook.ready', 'hook.listening' flags
+* 'spawn' method. NOTE, it is required to install 'forever' module to get ability 
+to spawn hook in separate process.
+
+## new stuff
+* lightweight, core is < 200 lines
+* always work using sockets so inprocess hook behavior and interprocess will remain the same, no surprises
+* work as smart hub, dispatching events only to clients that need them (subscribe)
+* emits 'hook::newListener' with handler 'function (type, hookName)'
+* accept also 'port' and 'host' for options (without 'hook-' prefix)
 
 ## MIT License
 

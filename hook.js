@@ -67,6 +67,8 @@ var Hook = function (options) {
 						client.socket.send('tinyhook::pushemit', data);
 					})
 				}
+				// synthesize newListener event 
+				self.emit('hook::newListener',d.type,client.name);					
 			})
 			socket.data('tinyhook::off', function (d) {
 				client.proxy.removeAllListeners(d.type);
@@ -120,7 +122,7 @@ var Hook = function (options) {
 			if (!self.ready) {
 				// simulate hook:ready
 				self.ready = true;
-				EventEmitter.prototype.emit.apply(self,['hook::ready']);
+				self.emit('hook::ready');
 			}
 		});
 		client.on('close', function() {

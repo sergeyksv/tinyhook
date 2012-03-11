@@ -56,8 +56,14 @@ vows.describe('Basic ops: start, stop, listen, emit').addBatch({
 			topic.child1.start();
 			topic.child2.start();
 			topic.child3.start();
-			// give some time to hooks to establish relations
-			setTimeout(this.callback.bind(this, null,topic), 500);
+			var ch = 3;
+			var cb = this.callback.bind(this, null,topic);
+			function readyCallback() {
+				ch--; if (ch==0) cb();
+			}
+			topic.child1.on('hook::ready', readyCallback);
+			topic.child2.on('hook::ready', readyCallback);
+			topic.child3.on('hook::ready', readyCallback);
 		}, 
 		'master listens':function (topic) {
 			assert.equal(topic.master.listening, true);
@@ -94,12 +100,14 @@ vows.describe('Basic ops: start, stop, listen, emit').addBatch({
 		},
 		', master send message to child':{
 			topic:function(topic) {
+				// we can emit event from master only when we get know
+				// that client is listening for our event
+				topic.master.on('hook::newListener', function (type, hookName) {
+					if (type == 'master::someevent' && hookName=='child1') {
+						topic.master.emit('someevent','somedata')
+					}
+				})
 				topic.child1.once('master::someevent', this.callback.bind(this,null));
-				// we need allow warmup time to let server and client to talk 
-				// to each other
-				setTimeout(function () {
-					topic.master.emit('someevent','somedata');
-				}, 100);
 			},
 			'event received': function (msg) {
 				assert.equal(msg,'somedata');

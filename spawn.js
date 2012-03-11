@@ -77,7 +77,16 @@ exports.spawn = function (hooks, callback) {
 		hook['port'] = hook['port'] || self['hook-port'];
 
 		if (hook.src) {
-		  hookPath = process.cwd() + '/node_modules/' + hook.src;
+			// 1'st guess, this is path to file or module, i.e. just existent path
+			hookPath = path.resolve(hook.src);
+			if (!path.existsSync(hookPath)) {
+				// 2'nd guess, process module?
+				hookPath = process.cwd() + '/node_modules/' + hook.src;
+				if (!path.existsSync(hookPath)) {
+					// 3'nd guess, no idea, let require to resoolve it
+					hookPath = hook.src;
+				}
+			}
 		}
 
 		self.emit('hook::spawning', hook.name);
@@ -149,8 +158,9 @@ exports.spawn = function (hooks, callback) {
 		if (err) {
 		  return onError(err);
 		}
-
+		
 		self.emit('children::spawned', hooks);
+		
 		if (callback) {
 		  callback();
 		}

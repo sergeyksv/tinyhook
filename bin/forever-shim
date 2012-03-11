@@ -7,7 +7,17 @@ var hookPath;
 var path = require('path');
 
 if (argv['src']) {
-  hookPath = path.resolve('./node_modules/' + argv['src']);
+    var src = argv['src'];
+	// 1'st guess, this is path to file or module, i.e. just existent path
+	hookPath = path.resolve(src);
+	if (!path.existsSync(hookPath)) {
+		// 2'nd guess, process module?
+		hookPath = process.cwd() + '/node_modules/' + src;
+		if (!path.existsSync(hookPath)) {
+			// 3'nd guess, no idea, let require to resoolve it
+			hookPath = src;
+		}
+	}
 }
 
 var Hook = require(hookPath);
