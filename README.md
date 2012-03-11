@@ -38,6 +38,24 @@ mostly on demand and only if they make sense. What is supported:
 * 'hook.ready', 'hook.listening' flags
 * 'spawn' method. NOTE, it is required to install 'forever' module to get ability 
 to spawn hook in separate process.
+*  hook.emit pattern is limited to (type, data). NOTE, callback is not 
+supported and will never be. Messaging implies total uncertainity about 
+availability of recipients and this is main difference with remote 
+procedure call approach. If you want to get data using messages you have
+to sent messages :), see example below. It is possible to build kind of 
+RPC on top of messaging protocol, but messaging itself can't be RPC.
+
+```
+master.on('client:reply', function (reply) {
+   console.log(reply);
+});
+master.emit('request','What is your name');
+
+// this code listen for request, and broadcast reply
+client.on('*::request', function () {
+   client.emit('reply',client.name);
+})
+```
 
 ## new stuff
 * lightweight, core is < 200 lines
