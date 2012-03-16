@@ -18,8 +18,10 @@ hook.io concept and in some cases it can transparently replace hook.io.
 Reliable for us means that application should be able to consists from 
 dozens of processes running hooks and handle millions of messages a day
 without issues, hight CPU usage and hight memory consumption. On the
-momemt of creation it was 2-4 times more effective for CPU usage, memory
-consumption and latency of message delivery.
+moment of creation it was 2-4 times more effective for CPU usage, memory
+consumption and latency of message delivery. This is not just words, our
+simple ping-pong test (/test/fifo-test.js) takes 2 seconds on tinyhook
+and >30 seconds on original hook.io.
 
 It will be honest to say that it is build with help of light weight nssocket
 library which is build by authors of hook.io. I would say many thanks to them!
