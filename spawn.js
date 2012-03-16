@@ -33,7 +33,12 @@ exports.spawn = function (hooks, callback) {
 			hookio.forever = require('forever');
 		}
 		catch (ex) {
-			hookio.forever = ex;
+			try {
+				hookio.forever = require('tinyforever');
+			}
+			catch (ex) {
+				hookio.forever = ex;
+			}
 		}
 	}
   
