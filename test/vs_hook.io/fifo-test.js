@@ -22,7 +22,7 @@ vows.describe('Emitting event should use FIFO approach').addBatch({
 				var count=10000;
 				var ri = 0;
 				var cb = this.callback;
-				hook.on('*::test_echo', function (i) {
+				hook.on('child2::test_echo', function (i) {
 					if (i!=ri) 
 						cb(null, false);
 					ri++;

@@ -78,7 +78,9 @@ var Hook = function (options) {
 			socket.data('tinyhook::emit', function (d) {
 				d.event = client.name+"::"+d.event;
 				_(clients).forEach(function (cli) {
-					cli.proxy.emit(d.event,d);
+					// avoid reflecting message back to sender
+					if (client.name!=cli.name)
+						cli.proxy.emit(d.event,d);
 				});
 				// don't forget about ourselves
 				EventEmitter.prototype.emit.apply(self,[d.event, d.data]);
