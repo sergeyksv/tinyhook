@@ -178,11 +178,12 @@ Hook.prototype.connect = function(cb) {
 // Function will attempt to start server, if it fails we assume that server already available
 // then it start in client mode. So first hook will became super hook, overs its clients
 Hook.prototype.start = function(cb) {
+  var self = this;
   cb = cb || function () {};
   this.listen(function(e) {
-    if (e.code == 'EADDRINUSE') {
+    if (e!=null && e.code == 'EADDRINUSE') {
       // if server start fails we attempt to start in client mode
-      this.connect(cb);
+      self.connect(cb);
     } else {
       cb(e);
     }
@@ -226,5 +227,5 @@ Hook.prototype.on = function(type, listener) {
   if (this._eventTypes) {
     this._eventTypes[type] = 1;
   }
-  EventEmitter.prototype.emit.apply(this, arguments);
+  EventEmitter.prototype.on.apply(this, arguments);
 };
