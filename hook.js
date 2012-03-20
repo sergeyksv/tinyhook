@@ -88,7 +88,7 @@ var Hook = function (options) {
 		});
 		server.on('error', function (e) {
 			server = null;
-			if (e.code == 'EADDRINUSE')
+			if (e.code == 'EADDRINUSE' || e.code == 'EADDRNOTAVAIL')
 				startClient(cb);
 			else
 				cb(e);
