@@ -28,7 +28,7 @@ function Hook(options) {
   EventEmitter.call(this, this.eventEmitter_Props);
   
   // semi-private props
-  this._clients = {};
+  this._clients = [];
   this._client = null;
   this._uid = 1;
   this._eventTypes = {};
@@ -51,7 +51,7 @@ Hook.prototype.listen = function(cb) {
       socket: socket,
       proxy: new EventEmitter(self.eventEmitter_Props)
     };
-    self._clients[cliId] = client;
+    self._clients.push(client);
     
     // ignore errors, close will happens in anyway
     socket.on('error', function () {
@@ -59,7 +59,12 @@ Hook.prototype.listen = function(cb) {
     
     // clean context on client lost
     socket.on('close', function () {
-      delete self._clients[cliId];
+		for (var i=0; i<self._clients.length; i++) {
+			if (self._clients[i].id==cliId) {
+				self._clients.splice(i,1);
+				break;
+			}
+		}
     });
     
     // almost dummy hello greeting
@@ -80,6 +85,7 @@ Hook.prototype.listen = function(cb) {
       // synthesize newListener event 
       self.emit('hook::newListener', d.type, client.name);          
     });
+    
     socket.data('tinyhook::off', function (d) {
       client.proxy.removeAllListeners(d.type);
     });
@@ -88,13 +94,8 @@ Hook.prototype.listen = function(cb) {
     // with smart filtering which is provided by EventEmitter2
     socket.data('tinyhook::emit', function (d) {
       d.event = client.name+"::"+d.event;
-      Object.keys(self._clients).forEach(function (key) {
-        var cli = self._clients[key];
-        
-        // avoid reflecting message back to sender
-        if (client.name != cli.name) {
-          cli.proxy.emit(d.event, d);
-        }
+      self._clients.forEach(function (cli) {
+        cli.proxy.emit(d.event, d);
       });
       
       // don't forget about ourselves
@@ -213,8 +214,8 @@ Hook.prototype.emit = function(event, data, callback) {
   // send to clients event emitted on server (master)
   if (this._server) {
     var d = {event: this.name+"::"+event, data: data};
-    Object.keys(this._clients).forEach(function (key) {
-      self._clients[key].proxy.emit(d.event, d);
+    this._clients.forEach(function (cli) {
+      cli.proxy.emit(d.event, d);
     });
   }
   // still preserve local processing
