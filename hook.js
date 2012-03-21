@@ -182,7 +182,7 @@ Hook.prototype.start = function(cb) {
   var self = this;
   cb = cb || function () {};
   this.listen(function(e) {
-    if (e!=null && e.code == 'EADDRINUSE') {
+    if (e!=null && (e.code == 'EADDRINUSE' || e.code == 'EADDRNOTAVAIL')) {
       // if server start fails we attempt to start in client mode
       self.connect(cb);
     } else {
