@@ -208,7 +208,7 @@ Hook.prototype.emit = function(event, data, callback) {
   var self = this;
   // on client send event to master
   if (this._client) {
-    this._client.send(['tinyhook', 'emit'], {eid: self.uid++, event: event, data: data}, function () {});
+    this._client.send(['tinyhook', 'emit'], {eid: self._uid++, event: event, data: data}, function () {});
   }
   // send to clients event emitted on server (master)
   if (this._server) {
