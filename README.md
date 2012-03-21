@@ -36,7 +36,7 @@ mostly on demand and only if they make sense. What is supported:
 * 'hook::ready' event
 * 'children::ready', 'children::spawned' events for spawn
 * 'hook-port','hook-host','name', 'silent','local' options
-* 'start', 'stop' methods
+* 'start', 'stop', 'listen', 'connect' methods
 * 'hook.ready', 'hook.listening' flags
 * 'spawn' method. NOTE, it is required to install 'forever' module to get ability 
 to spawn hook in separate process.

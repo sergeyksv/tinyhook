@@ -1,4 +1,3 @@
-
 var EventEmitter = require('eventemitter2').EventEmitter2;
 var util = require('util');
 var nssocket = require('nssocket');
@@ -38,7 +37,13 @@ function Hook(options) {
 util.inherits(Hook, EventEmitter);
 Hook.prototype.spawn = require('./spawn').spawn;
 
-Hook.prototype.listen = function(cb) {
+Hook.prototype.listen = function(options, cb) {
+  // not sure which options can be passed, but lets
+  // keep this for compatibility with original hook.io
+  if (cb==null && options && options instanceof Function )
+    cb = options;
+  cb = cb || function () {};
+	
   var self = this;
   
   var server = self._server = nssocket.createServer(function (socket) {
@@ -105,7 +110,9 @@ Hook.prototype.listen = function(cb) {
   
   server.on('error', function (e) {
     server = self._server = null;
-    cb(e);
+    // here cb can be null, if we start listening and error happens after that
+    if (cb)
+		cb(e);
   });
   
   server.on('close', function (e) {
@@ -117,14 +124,21 @@ Hook.prototype.listen = function(cb) {
   server.on('listening', function () {
     self.listening = true;
     self.ready = true;
-    cb();
+    cb(); 
+    // set callback to null, so we wan't ping it one more time in error handler
+    cb = null;
     EventEmitter.prototype.emit.apply(self, ['hook::ready']);
   });
   
   server.listen(self['hook-port'], self['hook-host']);
 };
 
-Hook.prototype.connect = function(cb) {
+Hook.prototype.connect = function(options, cb) {
+  // not sure which options can be passed, but lets
+  // keep this for compatibility with original hook.io
+  if (cb==null && options && options instanceof Function )
+    cb = options;
+  cb = cb || function () {};
   var self = this;
   
   // since we using reconnect, will callback rightaway
@@ -178,9 +192,15 @@ Hook.prototype.connect = function(cb) {
 
 // Function will attempt to start server, if it fails we assume that server already available
 // then it start in client mode. So first hook will became super hook, overs its clients
-Hook.prototype.start = function(cb) {
-  var self = this;
+Hook.prototype.start = function(options, cb) {
+  // not sure which options can be passed, but lets
+  // keep this for compatibility with original hook.io
+  if (cb==null && options && options instanceof Function )
+    cb = options;
   cb = cb || function () {};
+  	
+  var self = this;
+
   this.listen(function(e) {
     if (e!=null && (e.code == 'EADDRINUSE' || e.code == 'EADDRNOTAVAIL')) {
       // if server start fails we attempt to start in client mode
@@ -206,10 +226,9 @@ Hook.prototype.stop = function(cb) {
 
 // hook into core events to dispatch events as required
 Hook.prototype.emit = function(event, data, callback) {
-  var self = this;
   // on client send event to master
   if (this._client) {
-    this._client.send(['tinyhook', 'emit'], {eid: self._uid++, event: event, data: data}, function () {});
+    this._client.send(['tinyhook', 'emit'], {eid: this._uid++, event: event, data: data}, function () {});
   }
   // send to clients event emitted on server (master)
   if (this._server) {
