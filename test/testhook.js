@@ -9,6 +9,9 @@ var TestHook = exports.TestHook = function (options) {
 			this.emit('test_echo', cmd.data);
 		else if (cmd.action == 'getpid') 
 			this.emit('test_getpid', process.pid)
+		else if (cmd.action == 'exit') {
+			process.exit(0);
+		}
 	})
 }
 
