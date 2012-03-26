@@ -1,7 +1,7 @@
 {
   "author": "Sergey Korotkov <sergeyksv@gmail.com>",
   "name": "tinyhook",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "repository": {
     "type": "git",
     "url": "git://github.com/sergeyksv/tinyhook.git"
@@ -26,7 +26,7 @@
     "underscore": "1.3.x",
     "nssocket": "0.3.x",
     "async":"0.1.x",
-    "tinyforever":">=0.0.2"
+    "tinyforever":">=0.0.3"
   },
   "scripts": {
     "test": "vows test/*-test.js --isolate --spec"
