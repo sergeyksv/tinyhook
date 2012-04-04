@@ -59,17 +59,26 @@ Hook.prototype.listen = function(options, cb) {
     self._clients.push(client);
     
     // ignore errors, close will happens in anyway
-    socket.on('error', function () {
+    socket.on('error', function (err) {
     });
     
-    // clean context on client lost
-    socket.on('close', function () {
+    // properly shutdown connection
+    function destroy() {
+		// forget this client
 		for (var i=0; i<self._clients.length; i++) {
 			if (self._clients[i].id==cliId) {
 				self._clients.splice(i,1);
+				// shutdown proxy and nssocket
+				client.proxy.removeAllListeners();
+				client.socket.destroy();
 				break;
 			}
 		}
+	}
+    
+    // clean context on client lost
+    socket.on('close', function () {
+		destroy();
     });
     
     // almost dummy hello greeting
@@ -83,7 +92,14 @@ Hook.prototype.listen = function(options, cb) {
     socket.data('tinyhook::on', function (d) {
       if (client.proxy.listeners(d.type).length == 0) {
         client.proxy.on(d.type, function (data) {
-          client.socket.send('tinyhook::pushemit', data);
+		  try {
+			client.socket.send('tinyhook::pushemit', data);
+	      } catch (e) {
+			// both we and nssocket has a function that should prevent
+			// this happening, but probably died/corrupted sockets can't 
+			// be detected by sockets error and close event and this can happens
+			destroy();
+		  }
         })
       }
       
@@ -218,7 +234,7 @@ Hook.prototype.stop = function(cb) {
     this._server.close();
   } else if (this._client) {
     this._client.once('close',cb);
-    this._client.end();
+    this._client.destroy();
   } else {
     cb();
   }

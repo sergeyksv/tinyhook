@@ -70,6 +70,10 @@ vows.describe('hook.io alike spawn').addBatch({
 					var cb = this.callback.bind(this,null);
 					// this should kill child (we ask him)
 					master.emit('testcmd',{action:'exit',data:''});
+					// pollute us with messages during tinyhook restart
+					setInterval(function () {
+						master.emit('testcmd',{action:'noop',data:''});
+					}, 5);
 					// then it should restart and notify us that we ready
 					master.on('child::hook::ready', function () {
 						master.once('child::test_echo', cb)
