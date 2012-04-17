@@ -11,6 +11,7 @@ function Hook(options) {
   this.name = this.name || options.name || options['hook-name'] || 'no-name';
   this.silent = this.silent || options.silent || true;
   this.local = this.local || options.local || false;
+  this.socketPath = this.socketPath || options.socketPath || false;
   this['hook-host'] = this['hook-host'] || options.host || options['hook-host'] || '127.0.0.1';
   this['hook-port'] = this['hook-port'] || options.port || options['hook-port'] || 1976;
   
@@ -146,26 +147,38 @@ Hook.prototype.listen = function(options, cb) {
     EventEmitter.prototype.emit.apply(self, ['hook::ready']);
   });
   
-  server.listen(self['hook-port'], self['hook-host']);
+  if(self.socketPath) {
+    server.listen(self.socketPath);
+  } else {
+    server.listen(self['hook-port'], self['hook-host']);
+  }
 };
 
 Hook.prototype.connect = function(options, cb) {
+  var self = this;
   // not sure which options can be passed, but lets
   // keep this for compatibility with original hook.io
   if (cb==null && options && options instanceof Function )
     cb = options;
   cb = cb || function () {};
-  var self = this;
   
-  // since we using reconnect, will callback rightaway
-  cb();
+  var reconnect = options.reconnect != null ? options.reconnect : true,
+      client = this._client = new nssocket.NsSocket({reconnect: reconnect});
   
-  var client = this._client = new nssocket.NsSocket({reconnect: true});
-  client.connect(self['hook-port'], self['hook-host']);
+  if(self.socketPath) {
+    client.connect(self.socketPath);
+  } else {
+    client.connect(self['hook-port'], self['hook-host']);
+  }
+  
+  client.on('error', cb);
   
   // when connection started we sayng hello and push
   // all known event types we have
   client.on('start', function () {
+    client.off('error', cb);
+    cb();
+    
     client.send(['tinyhook', 'hello'], {protoVersion: 1, name: self.name});
     
     // purge known event types
@@ -206,8 +219,11 @@ Hook.prototype.connect = function(options, cb) {
   }, 60000);
 };
 
-// Function will attempt to start server, if it fails we assume that server already available
-// then it start in client mode. So first hook will became super hook, overs its clients
+
+// Function will attempt to connect to a server.
+// If it fails we start a server. Following hooks will connect to
+// that hook. So first hook will became super hook, overs its
+// clients.
 Hook.prototype.start = function(options, cb) {
   // not sure which options can be passed, but lets
   // keep this for compatibility with original hook.io
@@ -216,14 +232,12 @@ Hook.prototype.start = function(options, cb) {
   cb = cb || function () {};
   	
   var self = this;
-
-  this.listen(function(e) {
-    if (e!=null && (e.code == 'EADDRINUSE' || e.code == 'EADDRNOTAVAIL')) {
-      // if server start fails we attempt to start in client mode
-      self.connect(cb);
-    } else {
-      cb(e);
+  
+  this.connect(function(e) {
+    if(e && e.code === 'ECONNREFUSED') {
+      return self.listen(cb);
     }
+    cb(e);
   });
 };
 
