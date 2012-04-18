@@ -65,6 +65,7 @@ client.on('*::request', function () {
 * work as smart hub, dispatching events only to clients that need them (subscribe)
 * emits 'hook::newListener' with handler 'function (type, hookName)'
 * accept also 'port' and 'host' for options (without 'hook-' prefix)
+* linked by default to lightweight forever replacement (tinyforever)
 
 ## MIT License
 
