@@ -155,12 +155,13 @@ Hook.prototype.connect = function(options, cb) {
   if (cb==null && options && options instanceof Function )
     cb = options;
   cb = cb || function () {};
+  options = options|| {};
   var self = this;
   
   // since we using reconnect, will callback rightaway
   cb();
   
-  var client = this._client = new nssocket.NsSocket({reconnect: true});
+  var client = this._client = new nssocket.NsSocket({reconnect: options.reconnect});
   client.connect(self['hook-port'], self['hook-host']);
   
   // when connection started we sayng hello and push
@@ -214,13 +215,14 @@ Hook.prototype.start = function(options, cb) {
   if (cb==null && options && options instanceof Function )
     cb = options;
   cb = cb || function () {};
+  options = options || {};
   	
   var self = this;
 
   this.listen(function(e) {
     if (e!=null && (e.code == 'EADDRINUSE' || e.code == 'EADDRNOTAVAIL')) {
       // if server start fails we attempt to start in client mode
-      self.connect(cb);
+      self.connect(options, cb);
     } else {
       cb(e);
     }
