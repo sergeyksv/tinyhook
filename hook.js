@@ -193,7 +193,7 @@ Hook.prototype.connect = function(options, cb) {
   // every XX seconds do garbage collect and notify server about
   // event we longer not listening. Realtime notification is not necessary
   // Its ok if for some period we receive events that are not listened
-  setInterval(function () {
+  self.gcId = setInterval(function () {
     Object.keys(self._eventTypes).forEach(function(type) {
       var listeners = self.listeners(type);
       if (listeners == null || listeners.length == 0) {
@@ -233,6 +233,7 @@ Hook.prototype.stop = function(cb) {
     this._server.on('close',cb);
     this._server.close();
   } else if (this._client) {
+    clearInterval(this.gcId);
     this._client.once('close',cb);
     this._client.destroy();
   } else {
