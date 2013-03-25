@@ -1,6 +1,8 @@
 var hookio = require('./hook'),
     async  = require('async'),
-    path   = require('path');
+    path   = require('path'),
+    fs = require('fs'),
+    existsSync = fs.existsSync || path.existsSync;
 
 exports.spawn = function (hooks, callback) {
 	var self = this,
@@ -84,10 +86,10 @@ exports.spawn = function (hooks, callback) {
 		if (hook.src) {
 			// 1'st guess, this is path to file or module, i.e. just existent path
 			hookPath = path.resolve(hook.src);
-			if (!fs.existsSync(hookPath)) {
+			if (!existsSync(hookPath)) {
 				// 2'nd guess, process module?
 				hookPath = process.cwd() + '/node_modules/' + hook.src;
-				if (!fs.existsSync(hookPath)) {
+				if (!existsSync(hookPath)) {
 					// 3'nd guess, no idea, let require to resoolve it
 					hookPath = hook.src;
 				}
