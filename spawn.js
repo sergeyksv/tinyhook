@@ -84,10 +84,10 @@ exports.spawn = function (hooks, callback) {
 		if (hook.src) {
 			// 1'st guess, this is path to file or module, i.e. just existent path
 			hookPath = path.resolve(hook.src);
-			if (!path.existsSync(hookPath)) {
+			if (!fs.existsSync(hookPath)) {
 				// 2'nd guess, process module?
 				hookPath = process.cwd() + '/node_modules/' + hook.src;
-				if (!path.existsSync(hookPath)) {
+				if (!fs.existsSync(hookPath)) {
 					// 3'nd guess, no idea, let require to resoolve it
 					hookPath = hook.src;
 				}
