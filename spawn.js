@@ -9,27 +9,27 @@ exports.spawn = function (hooks, callback) {
 		connections = 0,
 		local,
 		names;
-		
+
 	if (self.children==null)
 		self.children=[];
-		
+
 	 function onError (err) {
 		self.emit('error::spawn', err);
 		if (callback) {
 		  callback(err);
 		}
 	}
-  
-	if (!this.listening) {
-		return onError(new Error('Cannot spawn child hooks without calling `.listen()`'));
-	}  
+
+	if (!this.ready) {
+		return onError(new Error('Cannot spawn child hooks without being ready'));
+	}
 
 	if (typeof hooks === "string") {
 		hooks = new Array(hooks);
 	}
 
 	types = {};
-  
+
 	if (typeof hookio.forever === 'undefined') {
 		try {
 			hookio.forever = require('forever');
@@ -43,12 +43,12 @@ exports.spawn = function (hooks, callback) {
 			}
 		}
 	}
-  
+
 	local = self.local || !hookio.forever || hookio.forever instanceof Error;
-	
+
 	function cliOptions(options) {
 		var cli = [];
-  
+
 		var reserved_cli = ['port', 'host', 'name', 'type'];
 
 		Object.keys(options).forEach(function (key) {
@@ -127,7 +127,7 @@ exports.spawn = function (hooks, callback) {
 				max: 10,
 				silent: false,
 			};
-			
+
 			options.options = cliOptions(hook);
 
 			child = new (hookio.forever.Monitor)(hookBin, options);
@@ -137,23 +137,23 @@ exports.spawn = function (hooks, callback) {
 				  bin: hookBin,
 				  monitor: child
 				};
-			
+
 				self.emit('child::start', hook.name, self.children[hook.name]);
 				next();
 			});
-		  
+
 			child.on('restart', function () {
 				self.emit('child::restart', hook.name, self.children[hook.name]);
 			});
-		  
+
 			child.on('exit', function (err) {
 				self.emit('child::exit', hook.name, self.children[hook.name]);
 			});
 
-			child.start(); 
+			child.start();
 		}
 	}
-  
+
 	self.many('*::hook::ready', hooks.length,  function () {
 		connections++;
 		if (connections === hooks.length) {
@@ -165,13 +165,13 @@ exports.spawn = function (hooks, callback) {
 		if (err) {
 		  return onError(err);
 		}
-		
+
 		self.emit('children::spawned', hooks);
-		
+
 		if (callback) {
 		  callback();
 		}
 	});
-  
+
 	return this;
 };
