@@ -1,41 +1,27 @@
-var vows = require('vows');
-var assert = require('assert');
 var Hook = require('hook.io').Hook;
+var EventEmitter = require('eventemitter2').EventEmitter2
 
-vows.describe('Emitting event should use FIFO approach').addBatch({
-	'2 clients':{
-		topic:function () {
-			var master = new Hook({name: 'master',local:false, silent:true});
-			var cb = this.callback.bind(this, null,master);
-			master.start();
-			var child1 = new Hook({name: 'child1', silent:true});
-			child1.start();
-			master.on('hook::ready', function () {
-				master.spawn([{src:'../testhook.js',name:'child2', silent:true}]);
-			})
-			master.on('child2::hook::ready', cb.bind(this,null,child1));
-		},
-		'started':function () {
-		},
-		'exchange messages': {
-			topic:function(hook) {
-				var count=10000;
-				var ri = 0;
-				var cb = this.callback;
-				hook.on('child2::test_echo', function (i) {
-					if (i!=ri) 
-						cb(null, false);
-					ri++;
-					if (ri==count)
-						cb(null,true);
-				})
-				for (var i=0; i<count; i++) {
-					hook.emit('testcmd',{action:'echo',data:i});
-				}
-			},
-			'should follow fifo approach':function(res) {
-				assert.equal(true,res);
+var master = new Hook({name: 'master',local:false, silent:true});
+master.listen();
+master.on("hook::ready", function () {
+	var child1 = new Hook({name: 'child1', silent:true});
+	child1.connect();
+	child1.on('hook::ready', function () {
+		master.spawn([{src:'../testhook.js',name:'child2', silent:true, fork:true}]);
+	});
+	master.on('child2::hook::ready', function () {
+		var count=100000;
+		var ri = 0;
+		child1.on('*::test_echo', function (i) {
+			ri++;
+			if (ri==count) {
+				console.timeEnd("Hook");
+				process.exit();
 			}
+		});
+		console.time("Hook");
+		for (var i=0; i<count; i++) {
+			child1.emit('testcmd',{action:'echo',data:i});
 		}
-	}
-}).export(module);
+	});
+});

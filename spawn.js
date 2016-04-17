@@ -2,7 +2,9 @@ var hookio = require('./hook'),
     async  = require('async'),
     path   = require('path'),
     fs = require('fs'),
-    existsSync = fs.existsSync || path.existsSync;
+    existsSync = fs.existsSync || path.existsSync,
+	child_process = require("child_process"),
+	EventEmitter = require('eventemitter2').EventEmitter2;
 
 exports.spawn = function (hooks, callback) {
 	var self = this,
@@ -30,21 +32,7 @@ exports.spawn = function (hooks, callback) {
 
 	types = {};
 
-	if (typeof hookio.forever === 'undefined') {
-		try {
-			hookio.forever = require('forever');
-		}
-		catch (ex) {
-			try {
-				hookio.forever = require('tinyforever');
-			}
-			catch (ex) {
-				hookio.forever = ex;
-			}
-		}
-	}
-
-	local = self.local || !hookio.forever || hookio.forever instanceof Error;
+	local = self.local || false;
 
 	function cliOptions(options) {
 		var cli = [];
@@ -80,6 +68,8 @@ exports.spawn = function (hooks, callback) {
 			child,
 			keys;
 
+		hook.fork = true;
+
 		hook['host'] = hook['host'] || self['hook-host'];
 		hook['port'] = hook['port'] || self['hook-port'];
 
@@ -99,6 +89,7 @@ exports.spawn = function (hooks, callback) {
 		self.emit('hook::spawning', hook.name);
 
 		if (local) {
+			hook.fork = false;
 			self.children[hook.name] = {
 				module: require(hookPath)
 			};
@@ -117,40 +108,9 @@ exports.spawn = function (hooks, callback) {
 			// When the hook has fired the `hook::ready` event then continue.
 			//
 			mysun._hook.once('hook::ready', next.bind(null, null));
-		}
-		else {
-			//
-			// TODO: Make `max` and `silent` configurable through the `hook.config`
-			// or another global config.
-			//
-			options = {
-				max: 10,
-				silent: false,
-			};
-
-			options.options = cliOptions(hook);
-
-			child = new (hookio.forever.Monitor)(hookBin, options);
-			child.on('start', function onStart (_, data) {
-				// Bind the child into the children and move on to the next hook
-				self.children[hook.name] = {
-				  bin: hookBin,
-				  monitor: child
-				};
-
-				self.emit('child::start', hook.name, self.children[hook.name]);
-				next();
-			});
-
-			child.on('restart', function () {
-				self.emit('child::restart', hook.name, self.children[hook.name]);
-			});
-
-			child.on('exit', function (err) {
-				self.emit('child::exit', hook.name, self.children[hook.name]);
-			});
-
-			child.start();
+		} else {
+			console.log("hook::fork::call");
+			self.emit("hook::fork",{script:hookBin, params:cliOptions(hook)});
 		}
 	}
 

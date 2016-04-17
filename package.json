@@ -1,11 +1,11 @@
 {
   "author": "Sergey Korotkov <sergeyksv@gmail.com>",
   "name": "tinyhook",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "repository": {
     "type": "git",
     "url": "git://github.com/sergeyksv/tinyhook.git"
-  },  
+  },
   "contributors": [
     {
       "name": "Marak Squires",
@@ -15,18 +15,16 @@
       "name": "Oliver Leics",
       "email": "oliver.leics@gmail.com"
     }
-  ],  
+  ],
   "main": "./hook",
   "engines": {
     "node": ">= v0.4.x"
-  },  
+  },
   "dependencies": {
-    "eventemitter2": "0.4.x",
+    "eventemitter2": "",
     "optimist": "0.2.x",
     "underscore": "1.4.x",
-    "nssocket": "0.3.8",
-    "async":"0.2.x",
-    "tinyforever":">=0.0.3"
+    "async":"0.2.x"
   },
   "scripts": {
     "test": "vows test/*-test.js --isolate --spec"
