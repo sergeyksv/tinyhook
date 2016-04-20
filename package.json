@@ -21,15 +21,14 @@
     "node": ">= v0.4.x"
   },
   "dependencies": {
-    "eventemitter2": "",
+    "eventemitter2": "https://github.com/sergeyksv/EventEmitter2.git#wildcardCache",
     "optimist": "0.2.x",
-    "underscore": "1.4.x",
-    "async":"0.2.x"
+    "async":""
   },
   "scripts": {
-    "test": "vows test/*-test.js --isolate --spec"
+    "test": "mocha test/*.js"
   },
   "devDependencies": {
-    "vows": "0.7.x"
+    "mocha": ""
   }
 }

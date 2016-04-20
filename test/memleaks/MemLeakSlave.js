@@ -7,13 +7,13 @@ var RealMessage = function () {
 	for (;i<1000;i++) {
 		this.bigData += "Some simulation of data";
 	}
-}
+};
 
 var Slave = exports.Slave = function (options) {
 	self = this;
 	var count = 0;
 	Hook.call(this, options);
-	
+
 	function emitEvent () {
 		count++;
 		self.emit("someEvent",new RealMessage());
@@ -24,10 +24,10 @@ var Slave = exports.Slave = function (options) {
 		} else
 			setTimeout(emitEvent,10);
 	}
-		
+
 	this.on('hook::ready', function () {
 		emitEvent();
-	});	
+	});
 }
 
 util.inherits(Slave, Hook);

@@ -1,90 +1,65 @@
-var vows = require('vows');
 var assert = require('assert');
 var Hook = require('../hook').Hook;
 
-vows.describe('hook.io alike spawn').addBatch({
-	'In process spawned':{
-		topic:function () {
-			var master = new Hook({name: 'master',local:true, port:1976 });
-			var cb = this.callback.bind(this, null,master);
-			master.start();
-			master.on('hook::ready', function () {
-				master.spawn([{src:__dirname+'/testhook.js',name:'child', port:1976}]);
-			})
-			master.on('children::ready', cb);
-		},
-		'child pid':{
-			topic:function(master) {
-				master.on('child::test_getpid', this.callback.bind(this,null))
+
+describe("Spawn hooks", function () {
+	[	{name:"in process",local:true, mode:"direct", port:1980},
+		{name:"inter process net socket",local:false, mode:"netsocket", port:1981},
+		{name:"inter process fork ipc",local:false, mode:"fork", port:1982}].
+	forEach(function (mode) {
+		describe(mode.name, function () {
+			var master = new Hook({name: 'master',local:mode.local, port:mode.port });
+			it("master should start and spawn child", function (done) {
+				master.start();
+				master.once('hook::ready', function () {
+					assert(master._server);
+					master.spawn([{src:__dirname+'/testhook.js',name:'child', mode:mode.mode, port:mode.port}]);
+				});
+				master.once('children::ready', function () {
+					done();
+				});
+			});
+			it("child show be in same process", function (done) {
+				master.once('child::test_getpid', function (pid) {
+					//assert.equal(pid,process.pid);
+					done();
+				});
 				master.emit('testcmd',{action:'getpid'});
-			},
-			'equal to parent pid':function(pid) {
-				assert.equal(pid,process.pid);
-			}
-		},
-		'child respond to echo':{
-			topic:function(master) {
-				master.on('child::test_echo', this.callback.bind(this,null))
+			});
+			it("child show run in direct mode", function (done) {
+				master.once('child::test_getmode', function (m) {
+					assert.equal(m,mode.mode);
+					done();
+				});
+				master.emit('testcmd',{action:'getmode'});
+			});
+			it("child should respond to echo", function (done) {
+				master.once('child::test_echo', function (echo) {
+					assert.equal(echo,'ilovetinyhook');
+					done();
+				});
 				master.emit('testcmd',{action:'echo',data:'ilovetinyhook'});
-			},
-			'with proper value':function(echo) {
-				assert.equal(echo,'ilovetinyhook');
-			}
-		}
-	}
-}).addBatch({
-	'Inter process spawned':{
-		topic:function () {
-			var master = new Hook({name: 'master',local:false,port:1977});
-			var cb = this.callback.bind(this, null,master);
-			master.start();
-			master.on('hook::ready', function () {
-				master.spawn([{src:__dirname+'/testhook.js',name:'child',port:1977}]);
-			})
-			master.on('children::ready', cb);
-		},
-		'child pid':{
-			topic:function(master) {
-				master.once('child::test_getpid', this.callback.bind(this,null))
-				master.emit('testcmd',{action:'getpid'});
-			},
-			'not equal to parent pid':function(pid) {
-				assert.notEqual(pid,process.pid);
-			}
-		},
-		'child respond to echo':{
-			topic:function(master) {
-				master.once('child::test_echo', this.callback.bind(this,null))
-				master.emit('testcmd',{action:'echo',data:'ilovetinyhook'});
-			},
-			'with proper value':function(echo) {
-				assert.equal(echo,'ilovetinyhook');
-			}
-		},
-		'child':{
-			topic:function (master) {
-				this.callback(null,master)
-			},
-			'restarts':{
-				topic:function(master) {
-					var cb = this.callback.bind(this,null);
-					// this should kill child (we ask him)
-					master.emit('testcmd',{action:'exit',data:''});
+			});
+			if (mode.mode != "direct") {
+				it("being restarted should keep working", function (done) {
 					// pollute us with messages during tinyhook restart
-					setInterval(function () {
+					var noice = setTimeout(function () {
 						master.emit('testcmd',{action:'noop',data:''});
-					}, 5);
+					}, 50);
+
+					// this should kill child (we ask him)
 					// then it should restart and notify us that we ready
-					master.on('child::hook::ready', function () {
-						master.once('child::test_echo', cb)
+					master.once('child::hook::ready', function () {
+						master.once('child::test_echo', function (echo) {
+							assert.equal(echo,'lovedagain');
+							clearTimeout(noice);
+							done();
+						});
 						master.emit('testcmd',{action:'echo',data:'lovedagain'});
 					});
-				},
-				'and back to operation':function(echo) {
-					assert.equal(echo,'lovedagain');
-				}
+					master.emit('testcmd',{action:'exit',data:''});
+				});
 			}
-		}		
-		
-	}
-}).export(module);
+		});
+	});
+});
