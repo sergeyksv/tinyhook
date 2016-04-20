@@ -161,7 +161,7 @@ Hook.prototype.listen = function(options, cb) {
 				if (packet.length<10)
 					break;
 				var len = parseInt(packet.substring(0,10))-1000000000;
-				if (packet.length<10+len)
+				if (packet.length<(10+len))
 					break;
 				servefn(JSON.parse(packet.substring(10,10+len)));
 				packet=packet.substring(10+len);
@@ -294,7 +294,7 @@ Hook.prototype.connect = function(options, cb) {
 				if (packet.length<10)
 					break;
 				var len = parseInt(packet.substring(0,10))-1000000000;
-				if (packet.length<10+len)
+				if (packet.length<(10+len))
 					break;
 				var d = JSON.parse(packet.substring(10,10+len)).data;
 				packet=packet.substring(10+len);

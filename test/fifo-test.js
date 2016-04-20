@@ -2,9 +2,9 @@ var assert = require('assert');
 var Hook = require('../hook').Hook;
 
 describe("FIFO", function () {
-	[	{local:true, mode:"direct", port:1976},
-		{local:false, mode:"netsocket", port:1977},
-		{local:false, mode:"fork", port:1978}].
+	[	{local:true, mode:"direct", port:1977},
+		{local:false, mode:"netsocket", port:1978},
+		{local:false, mode:"fork", port:1979}].
 	forEach(function (mode) {
 		describe(mode.mode, function() {
 		  var master, child;
@@ -23,7 +23,7 @@ describe("FIFO", function () {
 				});
 			});
 			it("exchanging messages should follow FIFO approach", function (done) {
-				var count=50000;
+				var count=1000;
 				var ri = 0;
 				var cb = this.callback;
 				child1.on('child2::test_echo', function (i) {
