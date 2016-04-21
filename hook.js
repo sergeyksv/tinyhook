@@ -138,7 +138,7 @@ Hook.prototype.listen = function(options, cb) {
 			send : function (data) {
 				var lbuffer = new Buffer(4);
 				var buffer= new Buffer(JSON.stringify(data));
-				lbuffer.writeUInt32BE(buffer.length);
+				lbuffer.writeUInt32BE(buffer.length,0);
 				socket.write(lbuffer);
 				socket.write(buffer);
 			}
@@ -294,7 +294,7 @@ Hook.prototype.connect = function(options, cb) {
 		client.send = function (data) {
 			var lbuffer = new Buffer(4);
 			var buffer= new Buffer(JSON.stringify(data));
-			lbuffer.writeUInt32BE(buffer.length);
+			lbuffer.writeUInt32BE(buffer.length,0);
 			client.write(lbuffer);
 			client.write(buffer);
 		};
