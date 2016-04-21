@@ -136,10 +136,11 @@ Hook.prototype.listen = function(options, cb) {
 			name: "hook",
 			socket: socket,
 			send : function (data) {
-				var json = JSON.stringify(data);
-				var length = 1000000000+json.length;
-				socket.write(length.toString());
-				socket.write(json);
+				var lbuffer = new Buffer(4);
+				var buffer= new Buffer(JSON.stringify(data));
+				lbuffer.writeUInt32BE(buffer.length);
+				socket.write(lbuffer);
+				socket.write(buffer);
 			}
 		};
 
@@ -154,18 +155,35 @@ Hook.prototype.listen = function(options, cb) {
 			servefn({message:"tinyhook::bye"});
 		});
 
-		var packet = "";
+		var packets = [];
+		var len = 0, elen = 4, state=0;
 		socket.on('data',function(data) {
-			packet += data.toString();
-			while (true) {
-				if (packet.length<10)
-					break;
-				var len = parseInt(packet.substring(0,10))-1000000000;
-				if (packet.length<(10+len))
-					break;
-				servefn(JSON.parse(packet.substring(10,10+len)));
-				packet=packet.substring(10+len);
+			len += data.length;
+			var edata;
+			while (len>=elen) {
+				if (packets.length) {
+					packets.push(data);
+					data = Buffer.concat(packets, len);
+					packets = [];
+				}
+				edata = data.slice(0,elen);
+				len = len-elen;
+				if (len>0) {
+					data = data.slice(-len);
+				}
+				switch (state) {
+					case 0:
+						elen = edata.readUInt32BE(0);
+						state=1;
+						break;
+					case 1:
+						var d = JSON.parse(edata.toString());
+						state = 0; elen = 4;
+						servefn(d);
+				}
 			}
+			if (len)
+				packets.push(data);
 		});
 	});
 
@@ -274,10 +292,11 @@ Hook.prototype.connect = function(options, cb) {
 		client = this._client = net.connect(self['hook-port'],self['hook-host']);
 
 		client.send = function (data) {
-			var json = JSON.stringify(data);
-			var length = 1000000000+json.length;
-			this.write(length.toString());
-			this.write(json);
+			var lbuffer = new Buffer(4);
+			var buffer= new Buffer(JSON.stringify(data));
+			lbuffer.writeUInt32BE(buffer.length);
+			client.write(lbuffer);
+			client.write(buffer);
 		};
 
 		// when connection started we sayng hello and push
@@ -287,19 +306,35 @@ Hook.prototype.connect = function(options, cb) {
 		});
 
 		// tranlate pushed emit to local one
-		var packet = "";
+		var packets = [];
+		var len = 0, elen = 4, state=0;
 		client.on('data',function(data) {
-			packet += data.toString();
-			while (true) {
-				if (packet.length<10)
-					break;
-				var len = parseInt(packet.substring(0,10))-1000000000;
-				if (packet.length<(10+len))
-					break;
-				var d = JSON.parse(packet.substring(10,10+len)).data;
-				packet=packet.substring(10+len);
-				EventEmitter.prototype.emit.call(self, d.event, d.data);
+			len += data.length;
+			var edata;
+			while (len>=elen) {
+				if (packets.length) {
+					packets.push(data);
+					data = Buffer.concat(packets, len);
+					packets = [];
+				}
+				edata = data.slice(0,elen);
+				len = len-elen;
+				if (len>0) {
+					data = data.slice(-len);
+				}
+				switch (state) {
+					case 0:
+						elen = edata.readUInt32BE(0);
+						state=1;
+						break;
+					case 1:
+						var d = JSON.parse(edata.toString()).data;
+						state = 0; elen = 4;
+						EventEmitter.prototype.emit.call(self, d.event, d.data);
+				}
 			}
+			if (len)
+				packets.push(data);
 		});
 	}
 
