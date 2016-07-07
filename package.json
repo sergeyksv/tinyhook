@@ -18,7 +18,7 @@
   ],
   "main": "./hook",
   "engines": {
-    "node": ">= v0.4.x"
+    "node": ">= v0.10.x"
   },
   "dependencies": {
     "eventemitter2": "https://github.com/sergeyksv/EventEmitter2.git#wildcardCache",

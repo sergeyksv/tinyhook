@@ -15,18 +15,21 @@ describe("Spawn hooks", function () {
 					assert(master._server);
 					master.spawn([{src:__dirname+'/testhook.js',name:'child', mode:mode.mode, port:mode.port}]);
 				});
-				master.once('children::ready', function () {
+				master.once('hook::children-ready', function () {
 					done();
 				});
 			});
-			it("child show be in same process", function (done) {
+			it("child should be in "+(mode.local?"same":"different")+" process", function (done) {
 				master.once('child::test_getpid', function (pid) {
-					//assert.equal(pid,process.pid);
+					if (mode.local)
+						assert.equal(pid,process.pid);
+					else
+						assert.notEqual(pid,process.pid);
 					done();
 				});
 				master.emit('testcmd',{action:'getpid'});
 			});
-			it("child show run in direct mode", function (done) {
+			it("child should run in " + mode.mode +" mode", function (done) {
 				master.once('child::test_getmode', function (m) {
 					assert.equal(m,mode.mode);
 					done();

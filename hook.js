@@ -9,7 +9,7 @@ var existsSync = fs.existsSync || path.existsSync;
 
 exports.Hook = Hook;
 
-var rootHook = null;
+var roots = [];
 
 function Hook(options) {
 	if (!options) options = {};
@@ -18,7 +18,7 @@ function Hook(options) {
 	this.name = this.name || options.name || options['hook-name'] || 'no-name';
 	this.silent = JSON.parse(this.silent || options.silent || true);
 	this.local = JSON.parse(this.local || options.local || false);
-	this._hookMode = options.mode || "netsocket";
+	this._hookMode = options.mode || options['hook-mode'] || "netsocket";
 	this['hook-host'] = this['hook-host'] || options.host || options['hook-host'] || '127.0.0.1';
 	this['hook-port'] = this['hook-port'] || options.port || options['hook-port'] || 1976;
 
@@ -30,7 +30,7 @@ function Hook(options) {
 	this.eventEmitter_Props = {
 		delimiter: "::",
 		wildcard: true,
-		maxListeners: 20,
+		maxListeners: 100,
 		wildcardCache: true
 	};
 
@@ -64,6 +64,8 @@ function Hook(options) {
 
 			var child = child_process.fork(fork.script, fork.params);
 
+			self.emit('hook::fork-start', {name:fork.name, pid:child.pid} );
+
 			children[child.pid] = child;
 			function Client(name) {
 				this.name = name;
@@ -88,7 +90,6 @@ function Hook(options) {
 				} else if (msg.message == "tinyhook") {
 					if (msg.data.message == "tinyhook::hello") {
 						client = new Client(msg.name);
-						// self.emit('child::start', hook.name, self.children[hook.name]);
 						clients[msg.name] = self._serve(client);
 					}
 				}
@@ -100,10 +101,10 @@ function Hook(options) {
 				async.each(clients, function (client, cb) {
 					alive = true;
 					child = null;
-					self.emit('child::restart', fork.name);
 					client({message:"tinyhook:bye"});
 					cb();
 				}, function () {
+					self.emit('hook::fork-exit', {name:fork.name, exitcode:exitcode} );
 					// abnormal termination
 					if (exitcode!==0) {
 						var lifet = 0.0001*(new Date().valueOf() - start);
@@ -203,10 +204,10 @@ Hook.prototype.listen = function(options, cb) {
 	server.on('listening', function() {
 		self.listening = true;
 		self.ready = true;
+		roots[self['hook-port']] = self;
 		cb();
 		// set callback to null, so we wan't ping it one more time in error handler
 		cb = null;
-		rootHook = self;
 		EventEmitter.prototype.emit.call(self, 'hook::ready');
 	});
 
@@ -229,7 +230,9 @@ Hook.prototype.connect = function(options, cb) {
 
 	var client;
 
-	 if (rootHook) {
+	var rootHook = roots[self['hook-port']];
+	if (rootHook && (self.local || self._hookMode == "direct" || self._hookMode == "fork")) {
+		self._hookMode = "direct";
 		var lclient = {
 			name: "hook",
 			send: function (msg) {
@@ -257,7 +260,9 @@ Hook.prototype.connect = function(options, cb) {
 			self._clientStart(client);
 			self._hookMode = "direct";
 		});
-	} else if (self._hookMode == "fork") {
+	}
+	// fork mode is only possible if hook is launched using child_process.fork
+	else if (self._hookMode == "fork" && process.send) {
 		this._client = client = new EventEmitter(self.eventEmitter_Props);
 
 		client._mtpl = {
@@ -402,7 +407,7 @@ Hook.prototype.stop = function(cb) {
 };
 
 // hook into core events to dispatch events as required
-Hook.prototype.emit = function(event, data, callback) {
+Hook.prototype.emit = function(event, data, cb) {
 	// on client send event to master
 	if (this._client) {
 		this._client.send({ message: 'tinyhook::emit',
@@ -417,7 +422,7 @@ Hook.prototype.emit = function(event, data, callback) {
 	}
 
 	// still preserve local processing
-	EventEmitter.prototype.emit.call(this, event, data, callback);
+	EventEmitter.prototype.emit.call(this, event, data, cb);
 };
 
 Hook.prototype.on = function(type, listener) {
@@ -479,7 +484,7 @@ Hook.prototype._serve = function (client) {
 				break;
 			case 'tinyhook::on':
 				self.on(d.type, handler);
-				self.emit('hook::newListener', d.type, client.name);
+				self.emit('hook::newListener', {type:d.type, hook:client.name});
 				break;
 			case 'tinyhook::off':
 				self.off(d.type, handler);
@@ -494,29 +499,21 @@ Hook.prototype._serve = function (client) {
 	};
 };
 
-Hook.prototype.spawn = function (hooks, callback) {
+Hook.prototype.spawn = function (hooks, cb) {
 	var self = this,
 		connections = 0,
 		local,
 		names;
+	cb = cb || function () {};
 
 	if (!self.children)
 		self.children=[];
 
-	 function onError (err) {
-		self.emit('error::spawn', err);
-		if (callback) {
-		  callback(err);
-		}
-	}
+	if (!this.ready)
+		return cb(new Error('Cannot spawn child hooks without being ready'));
 
-	if (!this.ready) {
-		return onError(new Error('Cannot spawn child hooks without being ready'));
-	}
-
-	if (typeof hooks === "string") {
+	if (typeof hooks === "string")
 		hooks = new Array(hooks);
-	}
 
 	types = {};
 
@@ -594,27 +591,20 @@ Hook.prototype.spawn = function (hooks, callback) {
 			//
 			mysun._hook.once('hook::ready', next.bind(null, null));
 		} else {
-			self.emit("hook::fork",{script:hookBin, params:cliOptions(hook)});
+			self.emit("hook::fork",{script:hookBin, name: hook.name, params:cliOptions(hook)});
 		}
+		self.once(hook.name+'::hook::ready', function () {
+			connections++;
+			if (connections === hooks.length) {
+				self.emit('hook::children-ready', hooks);
+			}
+		});
 	}
 
-	self.many('*::hook::ready', hooks.length,  function () {
-		connections++;
-		if (connections === hooks.length) {
-			self.emit('children::ready', hooks);
-		}
-	});
-
 	async.forEach(hooks, spawnHook, function (err) {
-		if (err) {
-		  return onError(err);
-		}
-
-		self.emit('children::spawned', hooks);
-
-		if (callback) {
-		  callback();
-		}
+		if (!err)
+			self.emit('hook::children-spawned', hooks);
+		cb(err);
 	});
 
 	return this;
