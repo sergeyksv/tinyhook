@@ -21,7 +21,7 @@
     "node": ">= v0.10.x"
   },
   "dependencies": {
-    "eventemitter2": "https://github.com/sergeyksv/EventEmitter2.git#wildcardCache",
+    "eventemitter2": "1.0.x",
     "optimist": "0.2.x",
     "async":""
   },

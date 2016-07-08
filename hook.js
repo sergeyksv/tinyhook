@@ -31,7 +31,7 @@ function Hook(options) {
 		delimiter: "::",
 		wildcard: true,
 		maxListeners: 100,
-		wildcardCache: true
+// wildcardCache: true
 	};
 
 	EventEmitter.call(this, this.eventEmitter_Props);
@@ -41,6 +41,7 @@ function Hook(options) {
 	this._eventTypes = {};
 	this._server = null;
 	this._gcId = null;
+	this._connectCount = 0;
 
 	var self = this;
 	self.on("*::hook::fork", function (fork) {
@@ -310,6 +311,11 @@ Hook.prototype.connect = function(options, cb) {
 			self._clientStart(client);
 		});
 
+		// any error will terminate connection
+		client.on('error', function() {
+			client.end();
+		})
+
 		// tranlate pushed emit to local one
 		var packets = [];
 		var len = 0, elen = 4, state=0;
@@ -344,9 +350,24 @@ Hook.prototype.connect = function(options, cb) {
 	}
 
 	self._client.on('close', function() {
-		self.ready = false;
 		client.destroy();
 		client = self._client = null;
+		if (options.reconnect) {
+			self.connectCount++;
+			var reconnectFn = function () {
+				if (!self.ready)
+					return;
+				self.connect(options, function (err) {
+					if (err) {
+						setTimeout(reconnectFn,10*self.connectCount*self.connectCount);
+					} else {
+						self.connectCount = 1;
+					}
+				})
+			}();
+		} else {
+			self.ready = false;
+		}
 	});
 
 	// every XX seconds do garbage collect and notify server about
@@ -391,6 +412,7 @@ Hook.prototype.start = function(options, cb) {
 
 Hook.prototype.stop = function(cb) {
 	cb = cb || function() {};
+	this.ready = false;
 	if (this._server) {
 		this._server.on('close', cb);
 		this._server.close();
@@ -461,11 +483,17 @@ Hook.prototype._clientStart = function (client) {
 		});
 	});
 
-	if (!self.ready) {
-		// simulate hook:ready
+	// lets use echo to get ready status when all the above is processed
+	self.once("hook::ready-internal", function () {
+		self.emit(self.ready?"hook::reconnected":"hook::ready")
 		self.ready = true;
-		self.emit('hook::ready');
-	}
+	})
+	client.send({
+		message: 'tinyhook::echo',
+		data: {
+			event: 'hook::ready-internal'
+		}
+	});
 };
 
 Hook.prototype._serve = function (client) {
@@ -485,6 +513,12 @@ Hook.prototype._serve = function (client) {
 			case 'tinyhook::on':
 				self.on(d.type, handler);
 				self.emit('hook::newListener', {type:d.type, hook:client.name});
+				break;
+			case 'tinyhook::echo':
+				client.send({
+					message: 'tinyhook::pushemit',
+					data: {event:d.event,data:d.data}
+				});
 				break;
 			case 'tinyhook::off':
 				self.off(d.type, handler);
