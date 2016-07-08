@@ -485,8 +485,9 @@ Hook.prototype._clientStart = function (client) {
 
 	// lets use echo to get ready status when all the above is processed
 	self.once("hook::ready-internal", function () {
-		self.emit(self.ready?"hook::reconnected":"hook::ready")
+		var readyevent = self.ready?"hook::reconnected":"hook::ready";
 		self.ready = true;
+		self.emit(readyevent);
 	})
 	client.send({
 		message: 'tinyhook::echo',
