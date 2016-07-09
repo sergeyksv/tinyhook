@@ -44,20 +44,25 @@ function Hook(options) {
 	this._connectCount = 0;
 
 	var self = this;
+	var children = null;
+
 	self.on("*::hook::fork", function (fork) {
 
 		// only master (listening hook) is allowed to fork
 		if (!this.listening)
 			return;
 
-		var children = {};
+		// initialize childeren registry and take control on it
+		if (!children) {
+			children = {};
 
-		// we taking care on our childeren and stop them when we exit
-		process.on('exit', function () {
-			for (var pid in children) {
-				children[pid].kill();
-			}
-		});
+			// we taking care on our childeren and stop them when we exit
+			process.on('exit', function () {
+				for (var pid in children) {
+					children[pid].kill();
+				}
+			});
+		}
 
 		function ForkAndBind() {
 			var start = new Date().valueOf();
