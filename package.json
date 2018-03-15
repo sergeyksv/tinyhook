@@ -1,7 +1,7 @@
 {
   "author": "Sergey Korotkov <sergeyksv@gmail.com>",
   "name": "tinyhook",
-  "version": "0.2.2",
+  "version": "0.3.1",
   "repository": {
     "type": "git",
     "url": "git://github.com/sergeyksv/tinyhook.git"
@@ -14,11 +14,15 @@
     {
       "name": "Oliver Leics",
       "email": "oliver.leics@gmail.com"
+    },
+    {
+      "name": "Ivan Vitiaev",
+      "email": "godofluck89@gmail.com"
     }
   ],
   "main": "./hook",
   "engines": {
-    "node": ">= v0.10.x"
+    "node": ">= v4.x"
   },
   "dependencies": {
     "eventemitter2": "1.0.x",

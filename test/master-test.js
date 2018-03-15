@@ -20,7 +20,7 @@ describe("Master", function () {
     child1 = new Hook({name: 'child1', port:1950});
     child1.connect();
     child1.once('hook::ready', function () {
-      done();
+      setTimeout(done, 100);
     });
   })
   it("child2 started", function (done) {
