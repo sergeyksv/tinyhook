@@ -44,7 +44,7 @@ function Hook(options) {
 	this._gcId = null;
 	this._connectCount = 0;
 	this.children = null;
-
+	this.childrenSpawn = null;
 	this.on("*::hook::fork", hookFork);
 
 }
@@ -61,22 +61,21 @@ Hook.prototype._clientStart = _clientStart;
 Hook.prototype._serve = _serve;
 
 function hookFork (fork) {
+	var self = this;
 	// only master (listening hook) is allowed to fork
-	if (!this.listening)
-		return;
+	if (!this.listening) return;
 
 	// initialize childeren registry and take control on it
 	if (!this.children) {
 		this.children = {};
-
 		// we taking care on our childeren and stop them when we exit
 		process.on('exit', function () {
-			for (var pid in this.children) {
-				this.children[pid].kill();
+			for (var pid in self.children) {
+				self.children[pid].kill();
 			}
 		});
 	}
-	ForkAndBind.call(this, fork);
+	ForkAndBind.call(self, fork);
 }
 
 function ForkAndBind(fork) {
@@ -88,7 +87,6 @@ function ForkAndBind(fork) {
 
 	this.emit('hook::fork-start', {name:fork.name, pid:child.pid} );
 	this.children[child.pid] = child;
-
 	child.on("message", onMessage);
 	child.on("exit", onExit);
 
@@ -512,8 +510,8 @@ function spawn (hooks, cb) {
 
 	cb = cb || function () {};
 
-	if (!self.children)
-		self.children=[];
+	if (!self.childrenSpawn)
+		self.childrenSpawn={};
 
 	if (!this.ready)
 		return cb(new Error('Cannot spawn child hooks without being ready'));
@@ -574,7 +572,7 @@ function spawn (hooks, cb) {
 		self.emit('hook::spawning', hook.name);
 
 		if (local) {
-			self.children[hook.name] = {
+			self.childrenSpawn[hook.name] = {
 				module: require(hookPath)
 			};
 
@@ -582,8 +580,8 @@ function spawn (hooks, cb) {
 			// Here we assume that the `module.exports` of any given `hook.io-*` module
 			// has **exactly** one key. We extract this Hook prototype and instantiate it.
 			//
-			keys = Object.keys(self.children[hook.name].module);
-			var mysun = self.children[hook.name];
+			keys = Object.keys(self.childrenSpawn[hook.name].module);
+			var mysun = self.childrenSpawn[hook.name];
 			mysun.Hook  = mysun.module[keys[0]];
 			mysun._hook = new (mysun.Hook)(hook);
 			mysun._hook.start();
