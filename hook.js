@@ -163,7 +163,8 @@ function listen (options, cb) {
 			name: "hook",
 			socket: socket,
 			send : function (data) {
-				socket.write(bufferConverter.serialize(data));
+				var buffer = util.isBuffer(data) ? data : bufferConverter.serialize(data);
+				socket.write(buffer);
 			}
 		};
 
@@ -408,7 +409,13 @@ function emit (event, data, cb) {
 		});
 	} else if (this._server) {
 		// send to clients event emitted on server (master)
-		EventEmitter.prototype.emit.call(this, this.name + "::" + event, data);
+		var type = this.name + "::" + event;
+		var listeners = EventEmitter.prototype.listeners.call(this, type);
+		var option = {
+			isOption: true,
+			listenersLength: listeners.length
+		}
+		EventEmitter.prototype.emit.call(this, type, data, option);
 	}
 
 	// still preserve local processing
@@ -466,13 +473,32 @@ function _clientStart (client) {
 	});
 }
 
+var bufferInMemory = null;
+var bufferConverter = new BufferConverter();
+var repeatTimes = 0;
 function _serve (client) {
 	var self = this;
-	function handler(data) {
-		client.send({
-			message: 'tinyhook::pushemit',
-			data: {event:self.event,data:data}
-		});
+	function handler(data, options) {
+		var params = {
+			message: "tinyhook::pushemit",
+			data: {
+				event: self.event,
+				data: data
+			}
+		}
+		if (!( client.socket && options && options.isOption && options.listenersLength )) {
+			return client.send(params);
+		}
+		// store buffer to memory for resend buffer to same listeners
+		if (!bufferInMemory) {
+			bufferInMemory = bufferConverter.serialize(params);
+			repeatTimes = options.listenersLength;
+		}
+		client.send(bufferInMemory);
+		repeatTimes--;
+		if (!repeatTimes) {
+			bufferInMemory = null;
+		}
 	}
 	return function (msg) {
 		var d = msg.data;
