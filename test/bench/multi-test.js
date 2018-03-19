@@ -1,55 +1,58 @@
 var Hook = require('../../hook').Hook;
-var EventEmitter = require('eventemitter2').EventEmitter2;
-var master = new Hook({name: 'master',local:false, silent:true});
+var master = new Hook({ name: 'master', local: true });
 var async = require("async");
-var start;
 
 master.listen();
 master.on("hook::ready", function () {
-    
-    master.spawn([
-        { src: "../testhook.js", name: "child1", silent: true, fork: false },
-        { src: "../testhook.js", name: "child2", silent: true, fork: false },
-        { src: "../testhook.js", name: "child3", silent: true, fork: false },
-        { src: "../testhook.js", name: "child4", silent: true, fork: false },
-        { src: "../testhook.js", name: "child5", silent: true, fork: false }
-    ]);
+	async.parallel(getChilds(), () => {
+		makeRequests(getChilds().length);
+	});
 
-    async.parallel([
-        function(cb) {
-            master.on("child1::hook::ready", cb);
-        },
-        function(cb) {
-            master.on("child2::hook::ready", cb);
-        },
-        function(cb) {
-            master.on("child3::hook::ready", cb);
-        },
-        function(cb) {
-            master.on("child4::hook::ready", cb);
-        },
-        function(cb) {
-            master.on("child5::hook::ready", cb);
-        }
-    ], function(err) {
-        if (err) throw err;
+	function getChilds () {
+		return [
+			createChild(1),
+			createChild(2),
+			createChild(3),
+			createChild(4),
+			createChild(5),
+			createChild(6),
+			createChild(7),
+			createChild(8),
+			createChild(9)
+		]
+	}
 
-        // time with reduce serializers 0.997 sec 
-        // time without reduce serializers 0.997 sec 
-        var count=1000;
-        var ttReceiveCount = count * 5;
-		var receivedRequests = 0;
-		master.on('*::test_echo', function (i) {
-			receivedRequests++;
-			if (receivedRequests === ttReceiveCount) {
-				var time = new Date().valueOf()-start;
-				console.log("Time "+time/1000+"s rps "+count*1000/time);
-				process.exit();
-			}
-		});
-		start = new Date().valueOf();
-		for (var i=0; i<count; i++) {
-			master.emit('testcmd', { action: "echo", data: { hello: "world" }});
+	function response (cb) {
+		master.on("*::test_echo", cb);
+	}
+
+	function request () {
+		master.emit("testcmd", { action: "echo", data: { hello: "world" }});
+	}
+
+	function createChild (number) {
+		return function(cb) {
+			master.spawn([{ src: "../testhook.js", name: `child${ number }` }]);
+			master.on(`child${ number }::hook::ready`, cb);
 		}
-    });
+	}
+
+	function makeRequests (countOfChilds) {
+		var start = new Date().valueOf();
+		var ttCountSend = 100000;
+		var ttCountReceived = ttCountSend * countOfChilds;
+		var receivedCount = 0;
+
+		response(function() {
+			receivedCount++;
+			if (receivedCount !== ttCountReceived) return;
+			var time = new Date().valueOf() - start;
+			console.log("Time " + time / 1000 + "s rps " + ttCountSend * 1000 / time);
+			process.exit();
+		});
+
+		for (var i = 0; i < ttCountSend; i++) {
+			request();
+		}
+	}
 });
