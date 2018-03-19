@@ -163,8 +163,8 @@ function listen (options, cb) {
 			name: "hook",
 			socket: socket,
 			send : function (data) {
-				var buffer = util.isBuffer(data) ? data : bufferConverter.serialize(data);
-				socket.write(buffer);
+				if (util.isBuffer(data)) return socket.write(data);
+				socket.write(bufferConverter.serialize(data));
 			}
 		};
 
@@ -399,6 +399,14 @@ function stop (cb) {
 
 // hook into core events to dispatch events as required
 function emit (event, data, cb) {
+	var filterForListeners = function (data, listenerIdx) { return true };
+
+	// additional paramemeters in data message
+	if (data && data.__) {
+		if (data.__.filterForListeners) filterForListeners = data.__.filterForListeners; 
+		delete data.__;
+	}
+
 	// on client send event to master
 	if (this._client) {
 		this._client.send({ message: 'tinyhook::emit',
@@ -413,7 +421,8 @@ function emit (event, data, cb) {
 		var listeners = EventEmitter.prototype.listeners.call(this, type);
 		var option = {
 			isOption: true,
-			listenersLength: listeners.length
+			listenersLength: listeners.length,
+			filterForListeners: filterForListeners
 		}
 		EventEmitter.prototype.emit.call(this, type, data, option);
 	}
@@ -494,8 +503,13 @@ function _serve (client) {
 			bufferInMemory = bufferConverter.serialize(params);
 			repeatTimes = options.listenersLength;
 		}
-		client.send(bufferInMemory);
+
+		// balancer function
 		repeatTimes--;
+		if (options.filterForListeners) {
+			if (options.filterForListeners(data, repeatTimes)) client.send(bufferInMemory);
+		} else client.send(bufferInMemory);
+
 		if (!repeatTimes) {
 			bufferInMemory = null;
 		}
