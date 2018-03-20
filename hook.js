@@ -41,6 +41,7 @@ function Hook(options) {
 	this._client = null;
 	this._eventTypes = {};
 	this._server = null;
+	this._remoteEvents = null;
 	this._gcId = null;
 	this._connectCount = 0;
 	this.children = null;
@@ -162,9 +163,8 @@ function listen (options, cb) {
 		var client = {
 			name: "hook",
 			socket: socket,
-			send : function (data) {
-				if (util.isBuffer(data)) return socket.write(data);
-				socket.write(bufferConverter.serialize(data));
+			send : function (buffer) {
+				socket.write(buffer);
 			}
 		};
 
@@ -397,34 +397,33 @@ function stop (cb) {
 	}
 }
 
+function _getListenersLenght (type) {
+	return EventEmitter.prototype.listeners.call(this, type).length;
+}
+
 // hook into core events to dispatch events as required
+var bufferConverter = new BufferConverter();
 function emit (event, data, cb) {
-	var filterForListeners = function (data, listenerIdx) { return true };
-
-	// additional paramemeters in data message
-	if (data && data.__) {
-		if (data.__.filterForListeners) filterForListeners = data.__.filterForListeners; 
-		delete data.__;
-	}
-
 	// on client send event to master
 	if (this._client) {
-		this._client.send({ message: 'tinyhook::emit',
+		var prm = {
+			message: 'tinyhook::emit',
 			data: {
 				event: event,
 				data: data
 			}
-		});
+		};
+		this._client.send(prm);
 	} else if (this._server) {
 		// send to clients event emitted on server (master)
 		var type = this.name + "::" + event;
-		var listeners = EventEmitter.prototype.listeners.call(this, type);
-		var option = {
-			isOption: true,
-			listenersLength: listeners.length,
-			filterForListeners: filterForListeners
+		EventEmitter.prototype.emit.call(this, type, data);
+		if (this._remoteEvents && _getListenersLenght.call(this._remoteEvents, type)) {
+			var prm = _defTinyHookPushEmit(data);
+			prm.data.event = type;
+			var buffer = bufferConverter.serialize(prm);
+			EventEmitter.prototype.emit.call(this._remoteEvents, type, buffer);
 		}
-		EventEmitter.prototype.emit.call(this, type, data, option);
 	}
 
 	// still preserve local processing
@@ -445,6 +444,12 @@ function on (type, listener) {
 		this._eventTypes[type] = 1;
 	}
 	EventEmitter.prototype.on.call(this, type, listener);
+}
+
+function _onServer (type, listener) {
+	if (!this._remoteEvents)
+		this._remoteEvents = new EventEmitter(this.eventEmitter_Props);
+	EventEmitter.prototype.on.call(this._remoteEvents, type, listener);
 }
 
 function _clientStart (client) {
@@ -482,53 +487,50 @@ function _clientStart (client) {
 	});
 }
 
-var bufferInMemory = null;
-var bufferConverter = new BufferConverter();
-var repeatTimes = 0;
-function _serve (client) {
-	var self = this;
-	function handler(data, options) {
-		var params = {
-			message: "tinyhook::pushemit",
-			data: {
-				event: self.event,
-				data: data
-			}
-		}
-		if (!( client.socket && options && options.isOption && options.listenersLength )) {
-			return client.send(params);
-		}
-		// store buffer to memory for resend buffer to same listeners
-		if (!bufferInMemory) {
-			bufferInMemory = bufferConverter.serialize(params);
-			repeatTimes = options.listenersLength;
-		}
-
-		// balancer function
-		repeatTimes--;
-		if (options.filterForListeners) {
-			if (options.filterForListeners(data, repeatTimes)) client.send(bufferInMemory);
-		} else client.send(bufferInMemory);
-
-		if (!repeatTimes) {
-			bufferInMemory = null;
+function _defTinyHookPushEmit (data) {
+	return {
+		message: "tinyhook::pushemit",
+		data: {
+			event: this.event,
+			data: data
 		}
 	}
-	return function (msg) {
+}
+
+function _serve (client) {
+	var self = this;
+	return manageMessage;
+
+	function handler(data) {
+		client.send(_defTinyHookPushEmit.call(this, data));
+	}
+
+	function handlerServer (buffer) {
+		client.send(buffer);
+	}
+
+	function manageMessage (msg) {
 		var d = msg.data;
 		switch (msg.message) {
 			case 'tinyhook::hello':
 				client.name = d.name;
 				break;
 			case 'tinyhook::on':
-				self.on(d.type, handler);
-				self.emit('hook::newListener', {type:d.type, hook:client.name});
+				if (client.socket) _onServer.call(self, d.type, handlerServer);
+				else self.on(d.type, handler);
+				self.emit('hook::newListener', {
+					type: d.type,
+					hook: client.name
+				});
 				break;
 			case 'tinyhook::echo':
-				client.send({
-					message: 'tinyhook::pushemit',
-					data: {event:d.event,data:d.data}
-				});
+				var prm = {
+					data: {
+						event: d.event,
+						data: d.data
+					}
+				};
+				client.send(client.socket ? bufferConverter.serialize(prm) : prm);
 				break;
 			case 'tinyhook::off':
 				self.off(d.type, handler);
@@ -537,10 +539,17 @@ function _serve (client) {
 				self.off('**', handler);
 				break;
 			case 'tinyhook::emit':
-				EventEmitter.prototype.emit.call(self, client.name + "::" + d.event, d.data);
+				var t = client.name + "::" + d.event;
+				EventEmitter.prototype.emit.call(self, t, d.data);
+				if (self._remoteEvents && _getListenersLenght.call(self._remoteEvents, t)) {
+					var prm = _defTinyHookPushEmit(d.data);
+					prm.data.event = t;
+					var buffer = bufferConverter.serialize(prm);
+					EventEmitter.prototype.emit.call(self._remoteEvents, t, buffer);
+				}
 				break;
 		}
-	};
+	}
 }
 
 function spawn (hooks, cb) {

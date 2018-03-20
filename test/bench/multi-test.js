@@ -4,7 +4,7 @@ var async = require("async");
 
 master.listen();
 master.on("hook::ready", function () {
-	async.parallel(getChilds(), () => {
+	async.parallel(getChilds(), function () {
 		makeRequests(getChilds().length);
 	});
 
@@ -32,8 +32,8 @@ master.on("hook::ready", function () {
 
 	function createChild (number) {
 		return function(cb) {
-			master.spawn([{ src: "../testhook.js", name: `child${ number }` }]);
-			master.on(`child${ number }::hook::ready`, cb);
+			master.spawn([{ src: "../testhook.js", name: "child" + number }]);
+			master.on("child" + number + "::hook::ready", cb);
 		}
 	}
 
