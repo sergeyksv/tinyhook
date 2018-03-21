@@ -181,11 +181,12 @@ function listen (options, cb) {
 			servefn({message:"tinyhook::bye"});
 		});
 
-		bufferConverter.onDone = function(d) {
+		bufferConverter.onDone = function(buffer, idx, len) {
+			var d = bufferConverter.deserialize(buffer, idx, len);
 			servefn(d)
 		};
 		socket.on('data', function(chunk) {
-			bufferConverter.deserialize(chunk);
+			bufferConverter.takeFullBuffer(chunk);
 		});
 	}
 
@@ -237,7 +238,7 @@ function connect (options, cb) {
 			send: function (msg) {
 				process.nextTick(function () {
 					var d = msg.data;
-					EventEmitter.prototype.emit.call(self, d.event, d.data);
+					EventEmitter.prototype.emit.call(self, d.type, d.data);
 				});
 			}
 		};
@@ -284,7 +285,7 @@ function connect (options, cb) {
 		process.on('message',function(msg) {
 			if (msg.message === "tinyhook" && msg.name === self.name) {
 				var d = msg.data.data;
-				EventEmitter.prototype.emit.call(self, d.event, d.data);
+				EventEmitter.prototype.emit.call(self, d.type, d.data);
 			}
 		});
 
@@ -311,12 +312,13 @@ function connect (options, cb) {
 		});
 
 		// tranlate pushed emit to local one
-		bufferConverter.onDone = function (data) {
+		bufferConverter.onDone = function (buffer, idx, len) {
+			var data = bufferConverter.deserialize(buffer, idx, len);
 			var d = data.data;
-			EventEmitter.prototype.emit.call(self, d.event, d.data);
+			EventEmitter.prototype.emit.call(self, d.type, d.data);
 		};
 		client.on('data', function (chunk) {
-			bufferConverter.deserialize(chunk)
+			bufferConverter.takeFullBuffer(chunk)
 		});
 	}
 
@@ -350,9 +352,12 @@ function connect (options, cb) {
 			if (!listeners || !listeners.length) {
 				// no more listener for this event
 				// push this to server
-				client.send({message:'tinyhook::off', data: {
+				client.send({
+					message:'tinyhook::off',
+					data: {
 						type: type
-					}});
+					}
+				});
 				delete self._eventTypes[type];
 			}
 		});
@@ -434,7 +439,7 @@ function emit (event, data, cb) {
 		var prm = {
 			message: 'tinyhook::emit',
 			data: {
-				event: event,
+				type: event,
 				data: data
 			}
 		};
@@ -453,7 +458,7 @@ function emit (event, data, cb) {
 		if (remoteListeners.length) {
 			var _remoteListeners = _filterHandlers.call(this, type, data, remoteListeners);
 			var prm = _defTinyHookPushEmit(data);
-			prm.data.event = type;
+			prm.data.type = type;
 			var buffer = bufferConverter.serialize(prm);
 			_emitEvents.call(this._remoteEvents, type, buffer, _remoteListeners)
 		}
@@ -534,7 +539,7 @@ function _clientStart (client) {
 	client.send({
 		message: 'tinyhook::echo',
 		data: {
-			event: 'hook::ready-internal'
+			type: 'hook::ready-internal'
 		}
 	});
 }
@@ -543,7 +548,7 @@ function _defTinyHookPushEmit (data) {
 	return {
 		message: "tinyhook::pushemit",
 		data: {
-			event: this.event,
+			type: this.event,
 			data: data
 		}
 	}
@@ -578,7 +583,7 @@ function _serve (client) {
 			case 'tinyhook::echo':
 				var prm = {
 					data: {
-						event: d.event,
+						type: d.type,
 						data: d.data
 					}
 				};
@@ -591,11 +596,11 @@ function _serve (client) {
 				self.off('**', handler);
 				break;
 			case 'tinyhook::emit':
-				var t = client.name + "::" + d.event;
+				var t = client.name + "::" + d.type;
 				EventEmitter.prototype.emit.call(self, t, d.data);
 				if (self._remoteEvents && _getListenersLength.call(self._remoteEvents, t)) {
 					var prm = _defTinyHookPushEmit(d.data);
-					prm.data.event = t;
+					prm.data.type = t;
 					var buffer = bufferConverter.serialize(prm);
 					EventEmitter.prototype.emit.call(self._remoteEvents, t, buffer);
 				}
