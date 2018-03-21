@@ -10,6 +10,17 @@ var existsSync = fs.existsSync || path.existsSync;
 
 exports.Hook = Hook;
 
+var TINY_MESSAGES = Object.freeze({
+	HELLO: "tinyhook::hello",
+	ON: "tinyhook::on",
+	ECHO: "tinyhook::echo",
+	OFF: "tinyhook::off",
+	BYE: "tinyhook::bye",
+	EMIT: "tinyhook::emit",
+	PUSH_EMIT: "tinyhook::pushemit",
+	TINY: "tinyhook"
+});
+
 var roots = [];
 
 function Hook(options) {
@@ -98,7 +109,7 @@ function ForkAndBind(fork) {
 		// when process die all hooks have to say goodbye
 		async.each(clients, function (client, cb) {
 			child = null;
-			client({message:"tinyhook:bye"});
+			client({message: TINY_MESSAGES.BYE});
 			cb();
 		}, function () {
 			self.emit('hook::fork-exit', {name:fork.name, exitcode:exitcode} );
@@ -117,8 +128,8 @@ function ForkAndBind(fork) {
 		var client = clients[msg.name];
 		if (client) {
 			client(msg.data);
-		} else if (msg.message === "tinyhook") {
-			if (msg.data.message === "tinyhook::hello") {
+		} else if (msg.message === TINY_MESSAGES.TINY) {
+			if (msg.data.message === TINY_MESSAGES.HELLO) {
 				client = new Client(msg.name);
 				clients[msg.name] = self._serve(client);
 			}
@@ -128,7 +139,7 @@ function ForkAndBind(fork) {
 	function Client(name) {
 		this.name = name;
 		this._mtpl = {
-			message:"tinyhook",
+			message: TINY_MESSAGES.TINY,
 			name:name,
 			data:{}
 		};
@@ -178,12 +189,29 @@ function listen (options, cb) {
 
 		// clean context on client lost
 		socket.on('close', function() {
-			servefn({message:"tinyhook::bye"});
+			servefn({message: TINY_MESSAGES.BYE});
 		});
 
+		var serviceMessage = null;
 		bufferConverter.onDone = function(buffer, idx, len) {
-			var d = bufferConverter.deserialize(buffer, idx, len);
-			servefn(d)
+			if (!serviceMessage) {
+				serviceMessage = bufferConverter.deserialize(buffer, idx, len);
+				return;
+			}
+			var prm = {
+				message: serviceMessage.message,
+				buffer: [
+					buffer,
+					idx,
+					len
+				],
+				data: {
+					type: serviceMessage.type
+				}
+			};
+			prm.data.data = bufferConverter.deserialize.apply(null, prm.buffer);
+			servefn(prm);
+			serviceMessage = null;
 		};
 		socket.on('data', function(chunk) {
 			bufferConverter.takeFullBuffer(chunk);
@@ -266,7 +294,7 @@ function connect (options, cb) {
 		this._client = client = new EventEmitter(self.eventEmitter_Props);
 
 		client._mtpl = {
-			message:"tinyhook",
+			message: TINY_MESSAGES.TINY,
 			name:self.name,
 			data:{}
 		};
@@ -283,7 +311,7 @@ function connect (options, cb) {
 		};
 
 		process.on('message',function(msg) {
-			if (msg.message === "tinyhook" && msg.name === self.name) {
+			if (msg.message === TINY_MESSAGES.TINY && msg.name === self.name) {
 				var d = msg.data.data;
 				EventEmitter.prototype.emit.call(self, d.type, d.data);
 			}
@@ -296,8 +324,10 @@ function connect (options, cb) {
 		var bufferConverter = new BufferConverter();
 
 		client = this._client = net.connect(self['hook-port'],self['hook-host']);
-		client.send = function (data) {
-			client.write(bufferConverter.serialize(data));
+		client.send = function (msg) {
+			var dateMessage = _prepareBuffer(msg.data.data);
+			var serviceMessage = _generateServiceMessage(msg.data.type, msg.message, dateMessage);
+			client.write(serviceMessage);
 		};
 
 		// when connection started we sayng hello and push
@@ -353,7 +383,7 @@ function connect (options, cb) {
 				// no more listener for this event
 				// push this to server
 				client.send({
-					message:'tinyhook::off',
+					message: TINY_MESSAGES.OFF,
 					data: {
 						type: type
 					}
@@ -437,7 +467,7 @@ function emit (event, data, cb) {
 	// on client send event to master
 	if (this._client) {
 		var prm = {
-			message: 'tinyhook::emit',
+			message: TINY_MESSAGES.EMIT,
 			data: {
 				type: event,
 				data: data
@@ -471,12 +501,13 @@ function emit (event, data, cb) {
 function on (type, listener) {
 	if (!this._eventTypes[type] && this._client) {
 		this._client.send({
-				message: 'tinyhook::on',
+				message: TINY_MESSAGES.ON,
 				data: {
 					type: type
 				}
 			},
-			function() {});
+			function() {}
+		);
 	}
 	if (this._eventTypes) {
 		this._eventTypes[type] = 1;
@@ -512,17 +543,19 @@ function _onServer (type, listener) {
 function _clientStart (client) {
 	var self=this;
 	client.send({
-		message: 'tinyhook::hello',
+		message: TINY_MESSAGES.HELLO,
 		data: {
-			protoVersion: 1,
-			name: self.name
+			data: {
+				protoVersion: 1,
+				name: self.name
+			}
 		}
 	});
 
 	// purge known event types
 	Object.keys(self._eventTypes).forEach(function(type) {
 		client.send({
-			message: 'tinyhook::on',
+			message: TINY_MESSAGES.ON,
 			data: {
 				type: type
 			}
@@ -537,7 +570,7 @@ function _clientStart (client) {
 	});
 
 	client.send({
-		message: 'tinyhook::echo',
+		message: TINY_MESSAGES.ECHO,
 		data: {
 			type: 'hook::ready-internal'
 		}
@@ -546,12 +579,31 @@ function _clientStart (client) {
 
 function _defTinyHookPushEmit (data) {
 	return {
-		message: "tinyhook::pushemit",
+		message: TINY_MESSAGES.PUSH_EMIT,
 		data: {
 			type: this.event,
 			data: data
 		}
 	}
+}
+
+var emptyObject = bufferConverter.serialize({});
+
+function _generateServiceMessage (type, msg, buffer) {
+	var serviceMessage = {
+		message: msg,
+		type: type
+	};
+	serviceMessage = bufferConverter.serialize(serviceMessage);
+	return Buffer.concat([
+		serviceMessage,
+		buffer && buffer.length && buffer || emptyObject
+	]);
+}
+
+function _prepareBuffer (d) {
+	if (!(d !== undefined && d !== null)) return [];
+	return bufferConverter.serialize(d);
 }
 
 function _serve (client) {
@@ -569,10 +621,10 @@ function _serve (client) {
 	function manageMessage (msg) {
 		var d = msg.data;
 		switch (msg.message) {
-			case 'tinyhook::hello':
-				client.name = d.name;
+			case TINY_MESSAGES.HELLO:
+				client.name = d.data.name;
 				break;
-			case 'tinyhook::on':
+			case TINY_MESSAGES.ON:
 				if (client.socket) _onServer.call(self, d.type, handlerServer);
 				else self.on(d.type, handler);
 				self.emit('hook::newListener', {
@@ -580,7 +632,7 @@ function _serve (client) {
 					hook: client.name
 				});
 				break;
-			case 'tinyhook::echo':
+			case TINY_MESSAGES.ECHO:
 				var prm = {
 					data: {
 						type: d.type,
@@ -589,13 +641,13 @@ function _serve (client) {
 				};
 				client.send(client.socket ? bufferConverter.serialize(prm) : prm);
 				break;
-			case 'tinyhook::off':
+			case TINY_MESSAGES.OFF:
 				self.off(d.type, handler);
 				break;
-			case 'tinyhook::bye':
+			case TINY_MESSAGES.BYE:
 				self.off('**', handler);
 				break;
-			case 'tinyhook::emit':
+			case TINY_MESSAGES.EMIT:
 				var t = client.name + "::" + d.type;
 				EventEmitter.prototype.emit.call(self, t, d.data);
 				if (self._remoteEvents && _getListenersLength.call(self._remoteEvents, t)) {
