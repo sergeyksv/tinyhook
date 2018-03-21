@@ -209,7 +209,6 @@ function listen (options, cb) {
 					type: serviceMessage.type
 				}
 			};
-			prm.data.data = bufferConverter.deserialize.apply(null, prm.buffer);
 			servefn(prm);
 			serviceMessage = null;
 		};
@@ -618,10 +617,17 @@ function _serve (client) {
 		client.send(buffer);
 	}
 
+	function takeData (msg) {
+		if (!(msg.data.data === null || msg.data.data === undefined )) return msg.data.data;
+		if (!msg.buffer) return msg.data.data;
+		return bufferConverter.deserialize.apply(null, msg.buffer);
+	}
+
 	function manageMessage (msg) {
 		var d = msg.data;
 		switch (msg.message) {
 			case TINY_MESSAGES.HELLO:
+				d.data = takeData(msg);
 				client.name = d.data.name;
 				break;
 			case TINY_MESSAGES.ON:
@@ -636,7 +642,7 @@ function _serve (client) {
 				var prm = {
 					data: {
 						type: d.type,
-						data: d.data
+						data: takeData(msg)
 					}
 				};
 				client.send(client.socket ? bufferConverter.serialize(prm) : prm);
@@ -649,9 +655,17 @@ function _serve (client) {
 				break;
 			case TINY_MESSAGES.EMIT:
 				var t = client.name + "::" + d.type;
-				EventEmitter.prototype.emit.call(self, t, d.data);
-				if (self._remoteEvents && _getListenersLength.call(self._remoteEvents, t)) {
-					var prm = _defTinyHookPushEmit(d.data);
+				var lListeners = _getListenersLength.call(self, t);
+				var rListeners = self._remoteEvents && _getListenersLength.call(self._remoteEvents, t);
+
+				if (lListeners) {
+					d.data = takeData(msg);
+					EventEmitter.prototype.emit.call(self, t, d.data);
+				}
+
+				if (rListeners) {
+					var dataMessage = takeData(msg);
+					var prm = _defTinyHookPushEmit(dataMessage);
 					prm.data.type = t;
 					var buffer = bufferConverter.serialize(prm);
 					EventEmitter.prototype.emit.call(self._remoteEvents, t, buffer);
