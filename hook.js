@@ -42,6 +42,7 @@ function Hook(options) {
 	this._eventTypes = {};
 	this._server = null;
 	this._remoteEvents = null;
+	this._filters = null;
 	this._gcId = null;
 	this._connectCount = 0;
 	this.children = null;
@@ -57,6 +58,7 @@ Hook.prototype.start = start;
 Hook.prototype.stop = stop;
 Hook.prototype.emit = emit;
 Hook.prototype.on = on;
+Hook.prototype.onFilter = onFilter;
 Hook.prototype.spawn = spawn;
 Hook.prototype._clientStart = _clientStart;
 Hook.prototype._serve = _serve;
@@ -397,8 +399,31 @@ function stop (cb) {
 	}
 }
 
-function _getListenersLenght (type) {
-	return EventEmitter.prototype.listeners.call(this, type).length;
+function _getListenersLength (type) {
+	return _getListeners.call(this, type).length;
+}
+
+function _getListeners (type) {
+	return EventEmitter.prototype.listeners.call(this, type);
+}
+
+function _filterHandlers (type, data, listeners) {
+	if (!(listeners && listeners.length)) return [];
+	var filter = _findFilterByType.call(this, type);
+	var _listeners = [];
+	listeners.forEach(function(handler, idx) {
+		if (!filter) _listeners.push(handler);
+		if (filter && filter(data, idx)) _listeners.push(handler);
+	});
+	return _listeners;
+}
+
+function _emitEvents (type, data, listeners) {
+	var self = this;
+	self.event = type;
+	listeners.forEach(function(handler) {
+		handler.call(self, data);
+	})
 }
 
 // hook into core events to dispatch events as required
@@ -417,12 +442,20 @@ function emit (event, data, cb) {
 	} else if (this._server) {
 		// send to clients event emitted on server (master)
 		var type = this.name + "::" + event;
-		EventEmitter.prototype.emit.call(this, type, data);
-		if (this._remoteEvents && _getListenersLenght.call(this._remoteEvents, type)) {
+		var localListeners = _getListeners.call(this, type);
+		var remoteListeners = _getListeners.call(this._remoteEvents, type);
+
+		if (localListeners.length) {
+			var _localListeners = _filterHandlers.call(this, type, data, localListeners);
+			_emitEvents.call(this, type, data, _localListeners);
+		}
+
+		if (remoteListeners.length) {
+			var _remoteListeners = _filterHandlers.call(this, type, data, remoteListeners);
 			var prm = _defTinyHookPushEmit(data);
 			prm.data.event = type;
 			var buffer = bufferConverter.serialize(prm);
-			EventEmitter.prototype.emit.call(this._remoteEvents, type, buffer);
+			_emitEvents.call(this._remoteEvents, type, buffer, _remoteListeners)
 		}
 	}
 
@@ -444,6 +477,25 @@ function on (type, listener) {
 		this._eventTypes[type] = 1;
 	}
 	EventEmitter.prototype.on.call(this, type, listener);
+}
+
+/**
+ *
+ * @param type - should be clear cmd without ::
+ * @param {Object} fnFilter
+ */
+function onFilter (type, fnFilter) {
+	if (!util.isFunction(fnFilter)) throw new Error("Filter should be as function");
+	if (!this._server) throw new Error("Filter can be applied only for server");
+	if (!this._filters) this._filters = {};
+	this._filters[ type ] = fnFilter;
+}
+
+function _findFilterByType (type) {
+	if (!this._filters) return null;
+	var _type = type.split(this.eventEmitter_Props.delimiter);
+	_type = _type[ _type.length - 1 ];
+	return this._filters[ _type ] || null;
 }
 
 function _onServer (type, listener) {
@@ -541,7 +593,7 @@ function _serve (client) {
 			case 'tinyhook::emit':
 				var t = client.name + "::" + d.event;
 				EventEmitter.prototype.emit.call(self, t, d.data);
-				if (self._remoteEvents && _getListenersLenght.call(self._remoteEvents, t)) {
+				if (self._remoteEvents && _getListenersLength.call(self._remoteEvents, t)) {
 					var prm = _defTinyHookPushEmit(d.data);
 					prm.data.event = t;
 					var buffer = bufferConverter.serialize(prm);
