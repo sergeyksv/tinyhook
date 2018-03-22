@@ -1,7 +1,7 @@
 var assert = require('assert');
 var Hook = require('../hook').Hook;
 
-describe("FILTER", function () {
+describe.skip("FILTER", function () {
 	[	{mode:"direct", port: 2000},
 		{mode:"netsocket", port: 2001},
 		{mode:"fork", port: 2002}

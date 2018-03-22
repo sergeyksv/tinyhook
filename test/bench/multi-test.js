@@ -1,5 +1,5 @@
 var Hook = require('../../hook').Hook;
-var master = new Hook({ name: 'master', local: true });
+var master = new Hook({ name: 'master', local: false });
 var async = require("async");
 
 master.listen();
@@ -14,11 +14,7 @@ master.on("hook::ready", function () {
 			createChild(2),
 			createChild(3),
 			createChild(4),
-			createChild(5),
-			createChild(6),
-			createChild(7),
-			createChild(8),
-			createChild(9)
+			createChild(5)
 		]
 	}
 
@@ -30,6 +26,7 @@ master.on("hook::ready", function () {
 		master.emit("testcmd", { action: "echo", data: { hello: "world" }});
 	}
 
+
 	function createChild (number) {
 		return function(cb) {
 			master.spawn([{ src: "../testhook.js", name: "child" + number }]);
@@ -39,7 +36,7 @@ master.on("hook::ready", function () {
 
 	function makeRequests (countOfChilds) {
 		var start = new Date().valueOf();
-		var ttCountSend = 100000;
+		var ttCountSend = 10000;
 		var ttCountReceived = ttCountSend * countOfChilds;
 		var receivedCount = 0;
 

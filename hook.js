@@ -17,8 +17,7 @@ var TINY_MESSAGES = Object.freeze({
 	OFF: 4,
 	BYE: 5,
 	EMIT: 6,
-	PUSH_EMIT: 7,
-	TINY: 8
+	PUSH_EMIT: 7
 });
 
 var roots = [];
@@ -127,9 +126,9 @@ function ForkAndBind(fork) {
 	function onMessage (msg) {
 		var client = clients[msg.name];
 		if (client) {
-			client(msg.data);
-		} else if (msg.message === TINY_MESSAGES.TINY) {
-			if (msg.data.message === TINY_MESSAGES.HELLO) {
+			client(msg.msg,msg.data);
+		} else if (msg.message === "tinyhook") {
+			if (msg.msg.message === TINY_MESSAGES.HELLO) {
 				client = new Client(msg.name);
 				clients[msg.name] = self._serve(client);
 			}
@@ -139,9 +138,10 @@ function ForkAndBind(fork) {
 	function Client(name) {
 		this.name = name;
 		this._mtpl = {
-			message: TINY_MESSAGES.TINY,
+			message: "tinyhook",
 			name:name,
-			data:{}
+			msg: undefined,
+			data: undefined
 		};
 	}
 
@@ -149,8 +149,9 @@ function ForkAndBind(fork) {
 		send: clientSend
 	};
 
-	function clientSend (msg) {
-		this._mtpl.data = msg;
+	function clientSend (msg,data) {
+		this._mtpl.msg = msg;
+		this._mtpl.data = data;
 		if (child) child.send(this._mtpl);
 	}
 }
@@ -164,6 +165,7 @@ function listen (options, cb) {
 
 	var self = this;
 	var server = self._server = net.createServer();
+	self._remoteEvents = new EventEmitter(self.eventEmitter_Props)
 
 	server.on("connection", serverConnection);
 	server.on('error', serverError);
@@ -176,8 +178,8 @@ function listen (options, cb) {
 		var client = {
 			name: "hook",
 			socket: socket,
-			send : function (buffer) {
-				socket.write(buffer);
+			send : function (message,data) {
+				socket.write(bufferConverter.serializeNormal(message,data));
 			}
 		};
 
@@ -192,24 +194,9 @@ function listen (options, cb) {
 			servefn({message: TINY_MESSAGES.BYE});
 		});
 
-		var serviceMessage = null;
-		bufferConverter.onDone = function() {
-			if (!serviceMessage) {
-				serviceMessage = bufferConverter.deserialize.apply(null, arguments);
-				return;
-			}
-			var prm = {
-				message: serviceMessage.message,
-				buffer: arguments,
-				data: {
-					type: serviceMessage.type
-				}
-			};
-			servefn(prm);
-			serviceMessage = null;
-		};
+		bufferConverter.onDone = servefn;
 		socket.on('data', function(chunk) {
-			bufferConverter.takeFullBuffer(chunk);
+			bufferConverter.takeChunk(chunk);
 		});
 	}
 
@@ -258,18 +245,17 @@ function connect (options, cb) {
 		self._hookMode = "direct";
 		var lclient = {
 			name: "hook",
-			send: function (msg) {
+			send: function (msg,data) {
 				process.nextTick(function () {
-					var d = msg.data;
-					EventEmitter.prototype.emit.call(self, d.type, d.data);
+					EventEmitter.prototype.emit.call(self, msg.type, data);
 				});
 			}
 		};
 
 		var servefn = rootHook._serve(lclient);
 		this._client = client = new EventEmitter(self.eventEmitter_Props);
-		client.send = function (msg) {
-			servefn(msg);
+		client.send = function (msg,data) {
+			servefn(msg,data);
 		};
 		client.end = function () {
 			this.emit("close");
@@ -289,13 +275,15 @@ function connect (options, cb) {
 		this._client = client = new EventEmitter(self.eventEmitter_Props);
 
 		client._mtpl = {
-			message: TINY_MESSAGES.TINY,
+			message: "tinyhook",
 			name:self.name,
-			data:{}
+			msg:undefined,
+			data:undefined
 		};
 
-		client.send = function (msg) {
-			this._mtpl.data = msg;
+		client.send = function (msg,data) {
+			this._mtpl.msg = msg;
+			this._mtpl.data = data;
 			process.send(this._mtpl);
 		};
 		client.end = function () {
@@ -306,9 +294,8 @@ function connect (options, cb) {
 		};
 
 		process.on('message',function(msg) {
-			if (msg.message === TINY_MESSAGES.TINY && msg.name === self.name) {
-				var d = msg.data.data;
-				EventEmitter.prototype.emit.call(self, d.type, d.data);
+			if (msg.message === "tinyhook" && msg.name === self.name) {
+				EventEmitter.prototype.emit.call(self, msg.msg.type, msg.data);
 			}
 		});
 
@@ -316,13 +303,12 @@ function connect (options, cb) {
 
 	} else {
 		self._hookMode = "netsocket";
+
 		var bufferConverter = new BufferConverter();
 
 		client = this._client = net.connect(self['hook-port'],self['hook-host']);
-		client.send = function (msg) {
-			var dataMessage = _prepareBuffer(msg.data.data);
-			var serviceMessage = _generateServiceMessage(msg.data.type, msg.message, dataMessage);
-			client.write(serviceMessage);
+		client.send = function (message,data) {
+			client.write(bufferConverter.serializeNormal(message,data));
 		};
 
 		// when connection started we sayng hello and push
@@ -337,24 +323,11 @@ function connect (options, cb) {
 		});
 
 		// tranlate pushed emit to local one
-		var serviceMessage = null;
-		bufferConverter.onDone = function () {
-			if (!serviceMessage) {
-				serviceMessage = bufferConverter.deserialize.apply(null, arguments);
-				return;
-			}
-			var prm = {
-				message: serviceMessage.message,
-				data: {
-					type: serviceMessage.type,
-					data: bufferConverter.deserialize.apply(null, arguments)
-				}
-			};
-			EventEmitter.prototype.emit.call(self, prm.data.type, prm.data.data);
-			serviceMessage = null;
+		bufferConverter.onDone = function (message,data) {
+			EventEmitter.prototype.emit.call(self, message.type, data?JSON.parse(data.toString()):undefined);
 		};
 		client.on('data', function (chunk) {
-			bufferConverter.takeFullBuffer(chunk)
+			bufferConverter.takeChunk(chunk)
 		});
 	}
 
@@ -390,9 +363,7 @@ function connect (options, cb) {
 				// push this to server
 				client.send({
 					message: TINY_MESSAGES.OFF,
-					data: {
-						type: type
-					}
+					type: type
 				});
 				delete self._eventTypes[type];
 			}
@@ -440,62 +411,34 @@ function stop (cb) {
 	}
 }
 
-function _getListenersLength (type) {
-	return _getListeners.call(this, type).length;
-}
-
-function _getListeners (type) {
-	return EventEmitter.prototype.listeners.call(this, type);
-}
-
-function _filterHandlers (type, data, listeners) {
-	if (!(listeners && listeners.length)) return [];
-	var filter = _findFilterByType.call(this, type);
-	var _listeners = [];
-	listeners.forEach(function(handler, idx) {
-		if (!filter) _listeners.push(handler);
-		if (filter && filter(data, idx)) _listeners.push(handler);
-	});
-	return _listeners;
-}
-
-function _emitEvents (type, data, listeners) {
-	var self = this;
-	self.event = type;
-	listeners.forEach(function(handler) {
-		handler.call(self, data);
-	})
-}
-
 // hook into core events to dispatch events as required
 var bufferConverter = new BufferConverter();
+
 function emit (event, data, cb) {
 	// on client send event to master
 	if (this._client) {
-		var prm = {
+		this._client.send({
 			message: TINY_MESSAGES.EMIT,
-			data: {
-				type: event,
-				data: data
-			}
-		};
-		this._client.send(prm);
+			type: event
+		}, data);
 	} else if (this._server) {
 		// send to clients event emitted on server (master)
 		var type = this.name + "::" + event;
-		var localListeners = _getListeners.call(this, type);
-		var remoteListeners = _getListeners.call(this._remoteEvents, type);
 
-		if (localListeners.length) {
-			var _localListeners = _filterHandlers.call(this, type, data, localListeners);
-			_emitEvents.call(this, type, data, _localListeners);
-		}
+		// pass to ourselves
+		EventEmitter.prototype.emit.call(this, type, data, cb);
 
-		if (remoteListeners.length) {
-			var _remoteListeners = _filterHandlers.call(this, type, data, remoteListeners);
-			var serviceMessage = _generateServiceMessage(type, TINY_MESSAGES.PUSH_EMIT, _prepareBuffer(data));
-			_emitEvents.call(this._remoteEvents, type, serviceMessage, _remoteListeners)
-		}
+		// pass to remoteListeners
+		var cachedBuffer = null;
+		this._remoteEvents.emit(type, function () {
+			if (!cachedBuffer) {
+				cachedBuffer = bufferConverter.serializeNormal({
+					message: TINY_MESSAGES.PUSH_EMIT,
+					type: type,
+				},data);
+			}
+			return cachedBuffer;
+		})
 	}
 
 	// still preserve local processing
@@ -506,11 +449,8 @@ function on (type, listener) {
 	if (!this._eventTypes[type] && this._client) {
 		this._client.send({
 				message: TINY_MESSAGES.ON,
-				data: {
-					type: type
-				}
-			},
-			function() {}
+				type: type
+			}
 		);
 	}
 	if (this._eventTypes) {
@@ -538,31 +478,19 @@ function _findFilterByType (type) {
 	return this._filters[ _type ] || null;
 }
 
-function _onServer (type, listener) {
-	if (!this._remoteEvents)
-		this._remoteEvents = new EventEmitter(this.eventEmitter_Props);
-	EventEmitter.prototype.on.call(this._remoteEvents, type, listener);
-}
-
 function _clientStart (client) {
 	var self=this;
 	client.send({
 		message: TINY_MESSAGES.HELLO,
-		data: {
-			data: {
-				protoVersion: 1,
-				name: self.name
-			}
-		}
+		protoVersion: 3,
+		name: self.name
 	});
 
 	// purge known event types
 	Object.keys(self._eventTypes).forEach(function(type) {
 		client.send({
 			message: TINY_MESSAGES.ON,
-			data: {
-				type: type
-			}
+			type: type
 		});
 	});
 
@@ -575,109 +503,94 @@ function _clientStart (client) {
 
 	client.send({
 		message: TINY_MESSAGES.ECHO,
-		data: {
-			type: 'hook::ready-internal'
-		}
+		type: 'hook::ready-internal'
 	});
-}
-
-var emptyObject = bufferConverter.serialize({});
-function _generateServiceMessage (type, msg, buffer) {
-	if (!msg) throw new Error("Invalid service message");
-	if (msg !== TINY_MESSAGES.HELLO && !type) throw new Error("Type is reqiured");
-	var serviceMessage = {
-		message: msg,
-		type: type
-	};
-	serviceMessage = bufferConverter.serialize(serviceMessage);
-	return Buffer.concat([
-		serviceMessage,
-		buffer && buffer.length && buffer || emptyObject
-	]);
-}
-
-function _prepareBuffer (d) {
-	if (!(d !== undefined && d !== null)) return null;
-	return bufferConverter.serialize(d);
 }
 
 function _serve (client) {
 	var self = this;
-	return manageMessage;
+	var lhook = this;
+	var handler = null;
 
-	function handler(data) {
+	function handlerLegacy(data) {
 		client.send({
 			message: TINY_MESSAGES.PUSH_EMIT,
-			data: {
-				type: this.event,
-				data: data
-			}
-		});
+			type: this.event,
+		},data);
 	}
 
-	function handlerServer (buffer) {
-		client.send(buffer);
+	function handlerSocket (bufferFn) {
+		client.socket.write(bufferFn());
 	}
 
-	function takeData (msg) {
-		if (!(msg.data.data === null || msg.data.data === undefined )) return msg.data.data;
-		if (!msg.buffer) return msg.data.data;
-		return bufferConverter.deserialize.apply(null, msg.buffer);
+	if (client.socket) {
+		lhook = self._remoteEvents
+		handler = handlerSocket
+	} else {
+		lhook = self;
+		handler = handlerLegacy
 	}
 
-	function takeBuffer (msg) {
-		if (msg.buffer) return msg.buffer[0];
-		return _prepareBuffer(msg.data.data);
-	}
-
-	function manageMessage (msg) {
-		var d = msg.data;
+	return function  (msg,data) {
 		switch (msg.message) {
 			case TINY_MESSAGES.HELLO:
-				d.data = takeData(msg);
-				client.name = d.data.name;
+				client.name = msg.name;
 				break;
 			case TINY_MESSAGES.ON:
-				if (client.socket) _onServer.call(self, d.type, handlerServer);
-				else self.on(d.type, handler);
+				lhook.on(msg.type, handler);
 				self.emit('hook::newListener', {
-					type: d.type,
+					type: msg.type,
 					hook: client.name
 				});
 				break;
 			case TINY_MESSAGES.ECHO:
-				if (client.socket) {
-					var serviceMessage = _generateServiceMessage(d.type, TINY_MESSAGES.PUSH_EMIT, takeBuffer(msg));
-					client.send(serviceMessage);
-					break;
-				}
 				client.send({
-					data: {
-						type: d.type,
-						data: takeData(msg)
-					}
+					message: TINY_MESSAGES.PUSH_EMIT,
+					type: msg.type
 				});
-				break;
+				break
 			case TINY_MESSAGES.OFF:
-				self.off(d.type, handler);
+				lhook.off(msg.type, handler);
 				break;
 			case TINY_MESSAGES.BYE:
-				self.off('**', handler);
+				lhook.off('**', handler);
 				break;
 			case TINY_MESSAGES.EMIT:
-				var t = client.name + "::" + d.type;
-				var lListeners = _getListenersLength.call(self, t);
-				var rListeners = self._remoteEvents && _getListenersLength.call(self._remoteEvents, t);
+				var t = client.name + "::" + msg.type;
 
-				if (lListeners) {
-					d.data = takeData(msg);
-					EventEmitter.prototype.emit.call(self, t, d.data);
+				if (client.socket) {
+					// emit locally only if there are listeners, this is to no deserialize if this is not required
+					if (self.listeners(t).length || self.listenersAny().length)
+						EventEmitter.prototype.emit.call(self, t, data?JSON.parse(data.toString()):undefined);
+
+					// translate / pass this to child hooks
+					var cachedBuffer = null;
+					self._remoteEvents.emit(t, function () {
+						if (!cachedBuffer) {
+							cachedBuffer = bufferConverter.serializeFast({
+			 					message: TINY_MESSAGES.PUSH_EMIT,
+			 					type: t,
+			 				},data);
+						}
+						return cachedBuffer;
+					})
+				} else {
+					EventEmitter.prototype.emit.call(self, t, data);
+
+					// translate / pass this to child hooks
+					var cachedBuffer = null;
+					self._remoteEvents.emit(t, function () {
+						if (!cachedBuffer) {
+							cachedBuffer = bufferConverter.serializeNormal({
+			 					message: TINY_MESSAGES.PUSH_EMIT,
+			 					type: t,
+			 				},data);
+						}
+						return cachedBuffer;
+					})
+
 				}
 
-				if (rListeners) {
-					var serviceMessage = _generateServiceMessage(t, TINY_MESSAGES.PUSH_EMIT, takeBuffer(msg));
-					EventEmitter.prototype.emit.call(self._remoteEvents, t, serviceMessage);
-				}
 				break;
 		}
 	}
