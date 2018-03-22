@@ -193,18 +193,14 @@ function listen (options, cb) {
 		});
 
 		var serviceMessage = null;
-		bufferConverter.onDone = function(buffer, idx, len) {
+		bufferConverter.onDone = function() {
 			if (!serviceMessage) {
-				serviceMessage = bufferConverter.deserialize(buffer, idx, len);
+				serviceMessage = bufferConverter.deserialize.apply(null, arguments);
 				return;
 			}
 			var prm = {
 				message: serviceMessage.message,
-				buffer: [
-					buffer,
-					idx,
-					len
-				],
+				buffer: arguments,
 				data: {
 					type: serviceMessage.type
 				}
@@ -324,8 +320,8 @@ function connect (options, cb) {
 
 		client = this._client = net.connect(self['hook-port'],self['hook-host']);
 		client.send = function (msg) {
-			var dateMessage = _prepareBuffer(msg.data.data);
-			var serviceMessage = _generateServiceMessage(msg.data.type, msg.message, dateMessage);
+			var dataMessage = _prepareBuffer(msg.data.data);
+			var serviceMessage = _generateServiceMessage(msg.data.type, msg.message, dataMessage);
 			client.write(serviceMessage);
 		};
 
@@ -341,10 +337,21 @@ function connect (options, cb) {
 		});
 
 		// tranlate pushed emit to local one
-		bufferConverter.onDone = function (buffer, idx, len) {
-			var data = bufferConverter.deserialize(buffer, idx, len);
-			var d = data.data;
-			EventEmitter.prototype.emit.call(self, d.type, d.data);
+		var serviceMessage = null;
+		bufferConverter.onDone = function () {
+			if (!serviceMessage) {
+				serviceMessage = bufferConverter.deserialize.apply(null, arguments);
+				return;
+			}
+			var prm = {
+				message: serviceMessage.message,
+				data: {
+					type: serviceMessage.type,
+					data: bufferConverter.deserialize.apply(null, arguments)
+				}
+			};
+			EventEmitter.prototype.emit.call(self, prm.data.type, prm.data.data);
+			serviceMessage = null;
 		};
 		client.on('data', function (chunk) {
 			bufferConverter.takeFullBuffer(chunk)
@@ -486,10 +493,8 @@ function emit (event, data, cb) {
 
 		if (remoteListeners.length) {
 			var _remoteListeners = _filterHandlers.call(this, type, data, remoteListeners);
-			var prm = _defTinyHookPushEmit(data);
-			prm.data.type = type;
-			var buffer = bufferConverter.serialize(prm);
-			_emitEvents.call(this._remoteEvents, type, buffer, _remoteListeners)
+			var serviceMessage = _generateServiceMessage(type, TINY_MESSAGES.PUSH_EMIT, _prepareBuffer(data));
+			_emitEvents.call(this._remoteEvents, type, serviceMessage, _remoteListeners)
 		}
 	}
 
@@ -576,19 +581,10 @@ function _clientStart (client) {
 	});
 }
 
-function _defTinyHookPushEmit (data) {
-	return {
-		message: TINY_MESSAGES.PUSH_EMIT,
-		data: {
-			type: this.event,
-			data: data
-		}
-	}
-}
-
 var emptyObject = bufferConverter.serialize({});
-
 function _generateServiceMessage (type, msg, buffer) {
+	if (!msg) throw new Error("Invalid service message");
+	if (msg !== TINY_MESSAGES.HELLO && !type) throw new Error("Type is reqiured");
 	var serviceMessage = {
 		message: msg,
 		type: type
@@ -601,7 +597,7 @@ function _generateServiceMessage (type, msg, buffer) {
 }
 
 function _prepareBuffer (d) {
-	if (!(d !== undefined && d !== null)) return [];
+	if (!(d !== undefined && d !== null)) return null;
 	return bufferConverter.serialize(d);
 }
 
@@ -610,7 +606,13 @@ function _serve (client) {
 	return manageMessage;
 
 	function handler(data) {
-		client.send(_defTinyHookPushEmit.call(this, data));
+		client.send({
+			message: TINY_MESSAGES.PUSH_EMIT,
+			data: {
+				type: this.event,
+				data: data
+			}
+		});
 	}
 
 	function handlerServer (buffer) {
@@ -621,6 +623,11 @@ function _serve (client) {
 		if (!(msg.data.data === null || msg.data.data === undefined )) return msg.data.data;
 		if (!msg.buffer) return msg.data.data;
 		return bufferConverter.deserialize.apply(null, msg.buffer);
+	}
+
+	function takeBuffer (msg) {
+		if (msg.buffer) return msg.buffer[0];
+		return _prepareBuffer(msg.data.data);
 	}
 
 	function manageMessage (msg) {
@@ -639,13 +646,17 @@ function _serve (client) {
 				});
 				break;
 			case TINY_MESSAGES.ECHO:
-				var prm = {
+				if (client.socket) {
+					var serviceMessage = _generateServiceMessage(d.type, TINY_MESSAGES.PUSH_EMIT, takeBuffer(msg));
+					client.send(serviceMessage);
+					break;
+				}
+				client.send({
 					data: {
 						type: d.type,
 						data: takeData(msg)
 					}
-				};
-				client.send(client.socket ? bufferConverter.serialize(prm) : prm);
+				});
 				break;
 			case TINY_MESSAGES.OFF:
 				self.off(d.type, handler);
@@ -664,11 +675,8 @@ function _serve (client) {
 				}
 
 				if (rListeners) {
-					var dataMessage = takeData(msg);
-					var prm = _defTinyHookPushEmit(dataMessage);
-					prm.data.type = t;
-					var buffer = bufferConverter.serialize(prm);
-					EventEmitter.prototype.emit.call(self._remoteEvents, t, buffer);
+					var serviceMessage = _generateServiceMessage(t, TINY_MESSAGES.PUSH_EMIT, takeBuffer(msg));
+					EventEmitter.prototype.emit.call(self._remoteEvents, t, serviceMessage);
 				}
 				break;
 		}
