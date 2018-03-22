@@ -11,14 +11,14 @@ var existsSync = fs.existsSync || path.existsSync;
 exports.Hook = Hook;
 
 var TINY_MESSAGES = Object.freeze({
-	HELLO: "tinyhook::hello",
-	ON: "tinyhook::on",
-	ECHO: "tinyhook::echo",
-	OFF: "tinyhook::off",
-	BYE: "tinyhook::bye",
-	EMIT: "tinyhook::emit",
-	PUSH_EMIT: "tinyhook::pushemit",
-	TINY: "tinyhook"
+	HELLO: 1,
+	ON: 2,
+	ECHO: 3,
+	OFF: 4,
+	BYE: 5,
+	EMIT: 6,
+	PUSH_EMIT: 7,
+	TINY: 8
 });
 
 var roots = [];
