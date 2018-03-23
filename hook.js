@@ -585,7 +585,7 @@ function _serve (client) {
 				break
 			case TINY_MESSAGES.OFF:
 				lhook.off(msg.type, handler);
-				if (serviceEvents[type]) {
+				if (serviceEvents[msg.type]) {
 					self.off(serviceEvents[type].type,serviceEvents[type].handler)
 					delete serviceEvents[type];
 				}
