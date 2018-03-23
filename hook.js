@@ -52,7 +52,6 @@ function Hook(options) {
 	this._eventTypes = {};
 	this._server = null;
 	this._remoteEvents = null;
-	this._filters = null;
 	this._gcId = null;
 	this._connectCount = 0;
 	this.children = null;
@@ -460,15 +459,23 @@ function on (type, listener) {
 }
 
 /**
+ * This function allows to listen on specific event and with additional
+ * filtering support. This can be useful for load ballancing when two
+ * hooks will process same data but each need to process its own portion
  *
+ * @param {String} type Event type
+ * @param {String} selValue Ballance selector value
+ * @param {String} filterId Globally unique id for this filter
+ * @param {Object} fnFilter Ballance selector emmiter function
  * @param type - should be clear cmd without ::
- * @param {Object} fnFilter
  */
-function onFilter (type, fnFilter) {
-	if (!util.isFunction(fnFilter)) throw new Error("Filter should be as function");
-	if (!this._server) throw new Error("Filter can be applied only for server");
-	if (!this._filters) this._filters = {};
-	this._filters[ type ] = fnFilter;
+function onFilter (type, selValue, filterId, fnFilter, listener) {
+	function proxy (obj) {
+		if (selValue == fnFilter(obj))
+			listener(obj)
+	}
+	proxy._origin = listener;
+	this.on(type, proxy);
 }
 
 function _findFilterByType (type) {
