@@ -5,6 +5,10 @@ var TestHook = exports.TestHook = function (options) {
 	Hook.call(this, options);
 	var self = this;
 
+	function ballanceEcho(obj) {
+		self.emit('ballance_echo', obj.data.n);
+	}
+
 	this.on('*::testcmd', function (cmd) {
 		if (cmd.action == 'echo')
 			this.emit('test_echo', cmd.data);
@@ -16,9 +20,15 @@ var TestHook = exports.TestHook = function (options) {
 			process.exit(1);
 		} else if (cmd.action == 'ballance') {
 			if (self.name == cmd.data.ballanceName) {
-				self.onFilter("*::ballancecmd",cmd.data.ballanceSel, self.name, new Function(cmd.data.ballanceFn), function (obj) {
-					self.emit('ballance_echo', obj.data.n);
-				})
+				if (cmd.data.action=='on') {
+					// !!!! empty function below is just to ensure that normal `on`
+					// and `onFilter` will not conflict to eachother
+					self.on("*::ballancecmd", function (obj) {
+					})
+					self.onFilter("*::ballancecmd",cmd.data.ballanceSel, self.name, new Function(cmd.data.ballanceFn), ballanceEcho)
+				} else if (cmd.data.action=='off') {
+					self.off("*::ballancecmd",ballanceEcho);
+				}
 				self.emit("ballancecmd::ready");
 			}
 		}
