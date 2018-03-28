@@ -74,8 +74,27 @@ for keeping process running (does restart). 'hook::fork' receives data in form
 
   'name' is supposed to be used for identification. Basic life-cycle events are fired:
   'hook::fork-start' and 'hook::fork-exit'
+  
+* function `.onFilter`. This function allows to listen on specific event and with additional filtering support. This can be useful for load ballancing when more than one hooks will process same data but each need to process its own portion
+    ```
+    /**
+     * @param {String} type Event type
+     * @param {String} selValue Ballance selector value
+     * @param {String} filterId Globally unique id for this filter
+     * @param {Function} fnFilter Ballance selector emmiter function
+     * @param {Function} listener
+    */
+    ```
+    `fnFilter` here is arbitrary function that takes event paramater (denoted as `obj`) and produce some result (aka shard key). Particular listerner passed to this function will be called only if `fnFilter` function result will match to `selValue`. Primary benefit from this function is that it can work inside a root hook (routing hook) and send only data that will pass the filter.
 
 ## Revision history and compatibility notices
+
+### 0.3 - More speed from faster and smart serialization
+
+* fine tuned serialization function, not it is almost twice faster than in 0.2. 0.3 hooks cannot talk with 0.2 hooks, be careful
+* optimized ammount of serialization calls for case when same message sent to many nodes
+* optimized serialization for bypass messages (no xtra JSON.stringify/parse)
+* introduced new function `.onFilter` that can filter events on routing stage
 
 ### 0.2 - Speed optimizations, removed nssocket and forever dependencies
 
