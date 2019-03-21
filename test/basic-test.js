@@ -1,8 +1,8 @@
-var assert = require('assert');
-var Hook = require('../hook').Hook;
+const assert = require('assert');
+const { Hook } = require('../hook');
 
 describe('Standalone', function () {
-	var hook;
+	let hook;
 	it('should start',function (done) {
 		hook = new Hook({name:'local'});
 		hook.on('hook::ready', function () {
@@ -45,7 +45,7 @@ describe('Master & childs', function () {
 		{local:false, mode:"fork", port:1992}].
 	forEach(function (mode) {
 		describe(mode.mode, function() {
-			var topic;
+			let topic;
 			it("Started alltogether", function (done) {
 				topic = {
 					master: new Hook({name:'master',local:mode.local, mode:mode.mode, port:mode.port}),
@@ -57,7 +57,7 @@ describe('Master & childs', function () {
 					topic.child1.connect();
 					topic.child2.connect();
 					topic.child3.connect();
-					var ch = 3;
+					let ch = 3;
 					function readyCallback() {
 						ch--; if (ch===0) done();
 					}

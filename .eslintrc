@@ -1,0 +1,48 @@
+{
+    "env": {
+        "node": true,
+        "mocha": true,
+        "es6": true
+    },
+    "parserOptions": {
+        "ecmaVersion": 2017
+    },
+    "extends": ["eslint:recommended"],
+    "rules": {
+        "no-console": [0],
+        "block-scoped-var": 2,
+        "comma-dangle": [2, "never"],
+        "quotes": [0, "double"],
+        "no-unused-vars": [1, {"vars": "all", "args": "none"}],
+        "no-shadow": [2],
+        "no-mixed-spaces-and-tabs": [2],
+        "no-redeclare": [2],
+        "no-undef": [2],
+        "for-direction": 2,
+        "guard-for-in": 2,
+        "semi": [1, "always"],
+        "no-case-declarations": 0,
+        "no-constant-condition": 2,
+        "no-dupe-args": 2,
+        "no-dupe-keys": 2,
+        "no-empty": 1,
+        "no-extra-boolean-cast": 1,
+        "no-extra-semi": 1,
+        "no-func-assign": 2,
+        "no-inner-declarations": 0,
+        "no-invalid-regexp": 2,
+        "no-obj-calls": 2,
+        "no-multi-spaces": 1,
+        "no-new-wrappers": 2,
+        "no-regex-spaces": 2,
+        "no-sparse-arrays": 1,
+        "no-unexpected-multiline": 1,
+        "no-unreachable": 1,
+        "no-return-await": 2,
+        "no-throw-literal": 1,
+        "no-template-curly-in-string": 2,
+        "use-isnan": 1,
+        "valid-typeof": 2,
+        "no-process-exit": [0]
+    }
+}
