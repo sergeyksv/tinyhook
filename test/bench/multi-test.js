@@ -1,10 +1,10 @@
-var Hook = require('../../hook').Hook;
-var master = new Hook({ name: 'master', local: false });
-var async = require("async");
+const { Hook } = require('../../hook');
+const master = new Hook({ name: 'master', local: false });
+const safe = require("safe");
 
 master.listen();
 master.on("hook::ready", function () {
-	async.parallel(getChilds(), function () {
+	safe.parallel(getChilds(), function () {
 		makeRequests(getChilds().length);
 	});
 
@@ -15,7 +15,7 @@ master.on("hook::ready", function () {
 			createChild(3),
 			createChild(4),
 			createChild(5)
-		]
+		];
 	}
 
 	function response (cb) {
@@ -29,26 +29,26 @@ master.on("hook::ready", function () {
 
 	function createChild (number) {
 		return function(cb) {
-			master.spawn([{ src: "../testhook.js", name: "child" + number }]);
-			master.on("child" + number + "::hook::ready", cb);
-		}
+			master.spawn([{ src: "../testhook.js", name: `child${number}` }]);
+			master.on(`child${number}::hook::ready`, cb);
+		};
 	}
 
 	function makeRequests (countOfChilds) {
-		var start = new Date().valueOf();
-		var ttCountSend = 10000;
-		var ttCountReceived = ttCountSend * countOfChilds;
-		var receivedCount = 0;
+		const start = Date.now();
+		const ttCountSend = 10000;
+		const ttCountReceived = ttCountSend * countOfChilds;
+		let receivedCount = 0;
 
 		response(function() {
 			receivedCount++;
 			if (receivedCount !== ttCountReceived) return;
-			var time = new Date().valueOf() - start;
-			console.log("Time " + time / 1000 + "s rps " + ttCountSend * 1000 / time);
+			const time = Date.now() - start;
+			console.log(`Time ${time / 1000}s rps ${ttCountSend * 1000 / time}`);
 			process.exit();
 		});
 
-		for (var i = 0; i < ttCountSend; i++) {
+		for (let i = 0; i < ttCountSend; i++) {
 			request();
 		}
 	}

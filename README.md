@@ -74,7 +74,7 @@ for keeping process running (does restart). 'hook::fork' receives data in form
 
   'name' is supposed to be used for identification. Basic life-cycle events are fired:
   'hook::fork-start' and 'hook::fork-exit'
-  
+
 * function `.onFilter`. This function allows to listen on specific event and with additional filtering support. This can be useful for load ballancing when more than one hooks will process same data but each need to process its own portion
     ```
     /**
@@ -88,6 +88,10 @@ for keeping process running (does restart). 'hook::fork' receives data in form
     `fnFilter` here is arbitrary function that takes event paramater (denoted as `obj`) and produce some result (aka shard key). Particular listerner passed to this function will be called only if `fnFilter` function result will match to `selValue`. Primary benefit from this function is that it can work inside a root hook (routing hook) and send only data that will pass the filter.
 
 ## Revision history and compatibility notices
+
+### 0.4 - Update dependencies. ES6 syntax
+
+* Minimum version of Node.js v6
 
 ### 0.3 - More speed from faster and smart serialization
 

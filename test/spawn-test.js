@@ -1,5 +1,5 @@
-var assert = require('assert');
-var Hook = require('../hook').Hook;
+const assert = require('assert');
+const { Hook } = require('../hook');
 
 
 describe("Spawn hooks", function () {
@@ -8,18 +8,18 @@ describe("Spawn hooks", function () {
 		{name:"inter process fork ipc",local:false, mode:"fork", port:1982}].
 	forEach(function (mode) {
 		describe(mode.name, function () {
-			var master = new Hook({name: 'master',local:mode.local, port:mode.port });
+			const master = new Hook({name: 'master',local:mode.local, port:mode.port });
 			it("master should start and spawn child", function (done) {
 				master.start();
 				master.once('hook::ready', function () {
 					assert(master._server);
-					master.spawn([{src:__dirname+'/testhook.js',name:'child', mode:mode.mode, port:mode.port}]);
+					master.spawn([{src:`${__dirname}/testhook.js`,name:'child', mode:mode.mode, port:mode.port}]);
 				});
 				master.once('hook::children-ready', function () {
 					done();
 				});
 			});
-			it("child should be in "+(mode.local?"same":"different")+" process", function (done) {
+			it(`child should be in ${mode.local?"same":"different"} process`, function (done) {
 				master.once('child::test_getpid', function (pid) {
 					if (mode.local)
 						assert.equal(pid,process.pid);
@@ -29,7 +29,7 @@ describe("Spawn hooks", function () {
 				});
 				master.emit('testcmd',{action:'getpid'});
 			});
-			it("child should run in " + mode.mode +" mode", function (done) {
+			it(`child should run in ${mode.mode} mode`, function (done) {
 				master.once('child::test_getmode', function (m) {
 					assert.equal(m,mode.mode);
 					done();
@@ -46,7 +46,7 @@ describe("Spawn hooks", function () {
 			if (mode.mode != "direct") {
 				it("being restarted should keep working", function (done) {
 					// pollute us with messages during tinyhook restart
-					var noice = setTimeout(function () {
+					const noice = setTimeout(function () {
 						master.emit('testcmd',{action:'noop',data:''});
 					}, 50);
 

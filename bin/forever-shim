@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 
-var argv = require('optimist').argv;
+const argv = require('optimist').argv;
 
-var hookPath;
+let hookPath;
 
-var path = require('path');
-var fs = require('fs');
-var existsSync = fs.existsSync || path.existsSync
+const path = require('path');
+const fs = require('fs');
+const existsSync = fs.existsSync || path.existsSync;
 
 if (argv['src']) {
-    var src = argv['src'];
+    const src = argv['src'];
 	// 1'st guess, this is path to file or module, i.e. just existent path
 	hookPath = path.resolve(src);
 	if (!existsSync(hookPath)) {
 		// 2'nd guess, process module?
-		hookPath = process.cwd() + '/node_modules/' + src;
+		hookPath = `${process.cwd()}/node_modules/${src}`;
 		if (!existsSync(hookPath)) {
 			// 3'nd guess, no idea, let require to resoolve it
 			hookPath = src;
@@ -22,9 +22,9 @@ if (argv['src']) {
 	}
 }
 
-var Hook = require(hookPath);
+const Hook = require(hookPath);
 
-var keys = Object.keys(Hook);
+const keys = Object.keys(Hook);
 
 //
 // Remark: Assume the first class exported extends from Hook
@@ -33,10 +33,10 @@ var keys = Object.keys(Hook);
 //
 // TODO: Refactor this convention, it's a bit brittle
 //
-var hookClass = keys[0];
+let hookClass = keys[0];
 if (keys.length > 1) {
   hookClass = 'Hook';
 }
-var hook = new Hook[hookClass](argv);
+const hook = new Hook[hookClass](argv);
 
 hook.start();

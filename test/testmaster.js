@@ -1,10 +1,10 @@
-var argv = require('optimist').argv;
-var Hook = require('../hook').Hook;
+const { argv } = require('optimist');
+const { Hook } = require('../hook');
 
 if (process.send) {
-  var master = new Hook({name: 'master',local:false, port:argv.port });
-  master.listen();
-  master.once('hook::ready', function () {
-    process.send('master::ready');
-  });
+	const master = new Hook({name: 'master',local:false, port:argv.port });
+	master.listen();
+	master.once('hook::ready', function () {
+		process.send('master::ready');
+	});
 }

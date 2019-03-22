@@ -1,5 +1,4 @@
-var assert = require('assert');
-var Hook = require('../hook').Hook;
+const { Hook } = require('../hook');
 
 describe("FILTER", function () {
 	[	{mode:"direct", port: 2000},
@@ -8,33 +7,34 @@ describe("FILTER", function () {
 	].
 	forEach(function (mode) {
 		describe(mode.mode, function() {
-			var master, child1;
+			let master;
 			it("started master and childs hooks", function (done) {
 				master = new Hook({name: 'master', local: true, port: mode.port});
 				master.start();
 				master.on('hook::ready', function () {
-					master.spawn([{ src:__dirname+'/testhook.js',name:'child2', port: mode.port }]);
-					master.spawn([{ src:__dirname+'/testhook.js',name:'child3', port: mode.port }]);
+					master.spawn([{ src:`${__dirname}/testhook.js`,name:'child2', port: mode.port }]);
+					master.spawn([{ src:`${__dirname}/testhook.js`,name:'child3', port: mode.port }]);
 				});
 
-				var r = 0;
+				let r = 0;
 				master.on('hook::children-ready', function () {
 					r++;
 					if (r === 2) done();
 				});
 			});
-			var bcmd=2;
+			let bcmd=2;
 			it("setup chields to listen ballanced", function (done) {
-				master.emit("testcmd", { action: "ballance", data: {  action:'on', ballanceSel:2, ballanceName:"child2", ballanceFn: "return arguments[0].node;" }});
-				master.emit("testcmd", { action: "ballance", data: {  action:'on', ballanceSel:3, ballanceName:"child3", ballanceFn: "return arguments[0].node;" }});
+				master.emit("testcmd", { action: "ballance", data: { action:'on', ballanceSel:2, ballanceName:"child2", ballanceFn: "return arguments[0].node;" }});
+				master.emit("testcmd", { action: "ballance", data: { action:'on', ballanceSel:3, ballanceName:"child3", ballanceFn: "return arguments[0].node;" }});
 				master.many("*::ballancecmd::ready", 2, function () {
 					bcmd--;
 					if (bcmd==0)
-						done()
-				})
-			})
+						done();
+				});
+			});
 			it("test applied filter", function (done) {
-				var numberLast = 0; numberProc = 2;
+				let numberLast = 0,
+					numberProc = 2;
 				master.many("*::ballance_echo", 6, function(data) {
 					numberLast += data;
 					if (data==0) {
@@ -58,11 +58,12 @@ describe("FILTER", function () {
 				master.emit("testcmd", { action: "ballance", data: { action:'off', ballanceName:"child2"}});
 				master.once("*::ballancecmd::ready", function () {
 					done();
-				})
-			})
+				});
+			});
 
 			it("test applied filter when child2 is off", function (done) {
-				var numberLast = 0; numberProc = 1;
+				let numberLast = 0,
+					numberProc = 1;
 				master.many("*::ballance_echo", 3, function(data) {
 					numberLast += data;
 					if (data==0) {
