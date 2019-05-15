@@ -264,6 +264,9 @@ class Hook extends EventEmitter {
 		// event we longer not listening. Realtime notification is not necessary
 		// Its ok if for some period we receive events that are not listened
 		this._gcId = setInterval(() => {
+			if (!client) // maybe disconneted?
+				return;
+
 			Object.keys(this._eventTypes).forEach(type => {
 				const listeners = this.listeners(type);
 				if (!listeners || !listeners.length) {
