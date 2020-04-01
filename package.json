@@ -1,7 +1,7 @@
 {
   "author": "Sergey Korotkov <sergeyksv@gmail.com>",
   "name": "tinyhook",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "repository": {
     "type": "git",
     "url": "git://github.com/sergeyksv/tinyhook.git"
@@ -29,15 +29,15 @@
     "node": ">= v6.x"
   },
   "dependencies": {
-    "eventemitter2": "~3.0.2",
-    "optimist": "0.6.x",
-    "safe": "^0.4.6"
+    "eventemitter2": "^6.3.1",
+    "safe": "^0.4.6",
+    "yargs": "^15.3.1"
   },
   "scripts": {
-    "test": "mocha test/*.js"
+    "test": "mocha --exit --allow-uncaught test/*.js"
   },
   "devDependencies": {
-    "eslint": "^5.15.3",
-    "mocha": "3.x.x"
+    "eslint": "^7.0.0-alpha.3",
+    "mocha": "^7.1.1"
   }
 }

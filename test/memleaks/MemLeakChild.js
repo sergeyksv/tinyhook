@@ -1,13 +1,14 @@
-var Hook = require('../../hook').Hook;
-var util = require('util');
+const { Hook } = require('../../hook');
 
-var Slave = exports.Slave = function (options) {
-	self = this;
-	Hook.call(this, options);
-	this.on('hook::ready', function () {
-		this.on('*::someEvent', function (msg) {
-		})
-	});	
+class Slave extends Hook {
+	constructor (options) {
+		super(options);
+
+		this.on('hook::ready', function () {
+			this.on('*::someEvent', function (msg) {
+			});
+		});
+	}
 }
 
-util.inherits(Slave, Hook);
+exports.Slave = Slave;

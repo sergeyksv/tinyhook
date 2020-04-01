@@ -349,6 +349,20 @@ class Hook extends EventEmitter {
 		super.on(type, listener);
 	}
 
+	once(type, listener) {
+		if (!this._eventTypes[type] && this._client) {
+			this._client.send({
+					message: TINY_MESSAGES.ON,
+					type
+				}
+			);
+		}
+		if (this._eventTypes) {
+			this._eventTypes[type] = 1;
+		}
+		super.once(type, listener);
+	}
+
 	/**
 	 * This function allows to listen on specific event and with additional
 	 * filtering support. This can be useful for load ballancing when two
@@ -596,7 +610,7 @@ class Hook extends EventEmitter {
 				//
 				// When the hook has fired the `hook::ready` event then continue.
 				//
-				mysun._hook.once('hook::ready', next.bind(null, null));
+				mysun._hook.once('hook::ready', () => next(null));
 			} else {
 				this.emit("hook::fork",{script:hookBin, name: hook.name, params:cliOptions(hook)});
 			}
