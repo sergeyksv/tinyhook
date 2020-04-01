@@ -29,7 +29,7 @@
     "node": ">= v6.x"
   },
   "dependencies": {
-    "eventemitter2": "~3.0.2",
+    "eventemitter2": "^6.3.1",
     "safe": "^0.4.6",
     "yargs": "^15.3.1"
   },
