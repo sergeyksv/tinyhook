@@ -89,6 +89,10 @@ for keeping process running (does restart). 'hook::fork' receives data in form
 
 ## Revision history and compatibility notices
 
+### 0.5 - Update dependencies.
+
+* Update dependencies to address vulnerabilities
+
 ### 0.4 - Update dependencies. ES6 syntax
 
 * Minimum version of Node.js v6
