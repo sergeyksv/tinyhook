@@ -1,4 +1,4 @@
-const { argv } = require('optimist');
+const { argv } = require('yargs');
 const { Hook } = require('../hook');
 
 if (process.send) {

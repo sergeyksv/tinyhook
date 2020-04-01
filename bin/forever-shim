@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const argv = require('optimist').argv;
+const { argv } = require('yargs');
 
 let hookPath;
 
@@ -9,7 +9,7 @@ const fs = require('fs');
 const existsSync = fs.existsSync || path.existsSync;
 
 if (argv['src']) {
-    const src = argv['src'];
+	const src = argv['src'];
 	// 1'st guess, this is path to file or module, i.e. just existent path
 	hookPath = path.resolve(src);
 	if (!existsSync(hookPath)) {

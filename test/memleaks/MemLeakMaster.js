@@ -1,16 +1,16 @@
-var Hook = require('../../hook').Hook;
+const { Hook } = require('../../hook');
 
-var hook = new Hook( {
-    name: 'MemLeakMaster',
-    silent: true,
-    local:false,
-    oneway:true
+const hook = new Hook({
+	name: 'MemLeakMaster',
+	silent: true,
+	local: false,
+	oneway: true
 });
 
 hook.on('hook::ready', function () {
-	hook.spawn([{src:'./MemLeakSlave.js',name:'MemLeakSlave', silent:true,oneway:true},
-		{src:'./MemLeakChild.js',name:'MemLeakChild', silent:true,oneway:true},
-		{src:'./MemLeakChild.js',name:'MemLeakChild', silent:true,oneway:true}]);
+	hook.spawn([{ src: './MemLeakSlave.js', name: 'MemLeakSlave', silent: true, oneway: true },
+	{ src: './MemLeakChild.js', name: 'MemLeakChild', silent: true, oneway: true },
+	{ src: './MemLeakChild.js', name: 'MemLeakChild', silent: true, oneway: true }]);
 });
 
 hook.start();

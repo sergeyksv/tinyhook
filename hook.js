@@ -596,7 +596,7 @@ class Hook extends EventEmitter {
 				//
 				// When the hook has fired the `hook::ready` event then continue.
 				//
-				mysun._hook.once('hook::ready', next.bind(null, null));
+				mysun._hook.once('hook::ready', () => next(null));
 			} else {
 				this.emit("hook::fork",{script:hookBin, name: hook.name, params:cliOptions(hook)});
 			}
