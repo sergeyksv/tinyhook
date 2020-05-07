@@ -15,6 +15,7 @@ const bufferConverter = new BufferConverter();
 const TINY_MESSAGES = Object.freeze({
 	HELLO: 1,
 	ON: 2,
+	ONCE: 2,
 	ECHO: 3,
 	OFF: 4,
 	BYE: 5,
