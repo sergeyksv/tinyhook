@@ -100,7 +100,7 @@ describe('Master & childs', function () {
 			it('master send message to child', function (done) {
 				// we can emit event from master only when we get know
 				// that client is listening for our event
-				topic.master.on('hook::newListener', function (data) {
+				topic.master.once('hook::newListener', function (data) {
 					if (data.type == 'master::someevent' && data.hook=='child1') {
 						topic.master.emit('someevent','somedata');
 					}

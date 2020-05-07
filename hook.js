@@ -71,7 +71,7 @@ class Hook extends EventEmitter {
 		// keep this for compatibility with original hook.io
 		if (!cb && options && options instanceof Function)
 			cb = options;
-		cb = cb || (() => {});
+		cb = cb || (() => { });
 
 		let server = this._server = net.createServer();
 		this._remoteEvents = new EventEmitter(this.eventEmitter_Props);
@@ -87,14 +87,14 @@ class Hook extends EventEmitter {
 			};
 
 			// ignore errors, close will happens in anyway
-			socket.on('error', err => {});
+			socket.on('error', err => { });
 
 			// properly shutdown connection
 			const servefn = this._serve(client);
 
 			// clean context on client lost
 			socket.on('close', () => {
-				servefn({message: TINY_MESSAGES.BYE});
+				servefn({ message: TINY_MESSAGES.BYE });
 			});
 
 			_bufferConverter.onDone = servefn;
@@ -138,7 +138,7 @@ class Hook extends EventEmitter {
 		// keep this for compatibility with original hook.io
 		if (!cb && options && options instanceof Function)
 			cb = options;
-		cb = cb || (() => {});
+		cb = cb || (() => { });
 		options = options || {
 			reconnect: true
 		};
@@ -163,7 +163,7 @@ class Hook extends EventEmitter {
 			const servefn = rootHook._serve(lclient);
 			this._client = client = new EventEmitter(this.eventEmitter_Props);
 			client.send = (msg, data) => {
-				servefn(msg,data);
+				servefn(msg, data);
 			};
 			client.end = function () {
 				this.emit("close");
@@ -184,12 +184,12 @@ class Hook extends EventEmitter {
 
 			client._mtpl = {
 				message: "tinyhook",
-				name:this.name,
-				msg:undefined,
-				data:undefined
+				name: this.name,
+				msg: undefined,
+				data: undefined
 			};
 
-			client.send = function (msg,data) {
+			client.send = function (msg, data) {
 				this._mtpl.msg = msg;
 				this._mtpl.data = data;
 				process.send(this._mtpl);
@@ -201,7 +201,7 @@ class Hook extends EventEmitter {
 				this.removeAllListeners();
 			};
 
-			process.on('message',msg => {
+			process.on('message', msg => {
 				if (msg.message === "tinyhook" && msg.name === this.name) {
 					EventEmitter.prototype.emit.call(this, msg.msg.type, msg.data);
 				}
@@ -215,7 +215,7 @@ class Hook extends EventEmitter {
 
 			client = this._client = net.connect(this['hook-port'], this['hook-host']);
 			client.send = (message, data) => {
-				client.write(_bufferConverter.serializeNormal(message,data));
+				client.write(_bufferConverter.serializeNormal(message, data));
 			};
 
 			// when connection started we sayng hello and push
@@ -231,7 +231,7 @@ class Hook extends EventEmitter {
 
 			// tranlate pushed emit to local one
 			_bufferConverter.onDone = (message, data) => {
-				EventEmitter.prototype.emit.call(this, message.type, data?JSON.parse(data.toString()):undefined);
+				EventEmitter.prototype.emit.call(this, message.type, data ? JSON.parse(data.toString()) : undefined);
 			};
 			client.on('data', chunk => {
 				_bufferConverter.takeChunk(chunk);
@@ -249,7 +249,7 @@ class Hook extends EventEmitter {
 
 					this.connect(options, err => {
 						if (err) {
-							setTimeout(reconnectFn,10*this.connectCount*this.connectCount);
+							setTimeout(reconnectFn, 10 * this.connectCount * this.connectCount);
 						} else {
 							this.connectCount = 1;
 						}
@@ -289,7 +289,7 @@ class Hook extends EventEmitter {
 		// keep this for compatibility with original hook.io
 		if (!cb && options && options instanceof Function)
 			cb = options;
-		cb = cb || (() => {});
+		cb = cb || (() => { });
 		options = options || {};
 
 		this.listen(e => {
@@ -302,9 +302,9 @@ class Hook extends EventEmitter {
 		});
 	}
 
-	stop(cb = () => {}) {
-        this.ready = false;
-        if (this._server) {
+	stop(cb = () => { }) {
+		this.ready = false;
+		if (this._server) {
 			this._server.on('close', cb);
 			this._server.close();
 		} else if (this._client) {
@@ -317,7 +317,7 @@ class Hook extends EventEmitter {
 		} else {
 			cb();
 		}
-    }
+	}
 
 	emit(event, data, cb) {
 		// on client send event to master
@@ -328,7 +328,7 @@ class Hook extends EventEmitter {
 			}, data);
 		} else if (this._server) {
 			// send to clients event emitted on server (master)
-			this._chieldEmit(`${this.name}::${event}`,data);
+			this._chieldEmit(`${this.name}::${event}`, data);
 		}
 
 		// still preserve local processing
@@ -338,10 +338,9 @@ class Hook extends EventEmitter {
 	on(type, listener) {
 		if (!this._eventTypes[type] && this._client) {
 			this._client.send({
-					message: TINY_MESSAGES.ON,
-					type
-				}
-			);
+				message: TINY_MESSAGES.ON,
+				type
+			});
 		}
 		if (this._eventTypes) {
 			this._eventTypes[type] = 1;
@@ -352,10 +351,9 @@ class Hook extends EventEmitter {
 	once(type, listener) {
 		if (!this._eventTypes[type] && this._client) {
 			this._client.send({
-					message: TINY_MESSAGES.ON,
-					type
-				}
-			);
+				message: TINY_MESSAGES.ONCE,
+				type
+			});
 		}
 		if (this._eventTypes) {
 			this._eventTypes[type] = 1;
@@ -376,23 +374,22 @@ class Hook extends EventEmitter {
 	 */
 	onFilter(type, selValue, filterId, fnFilter, listener) {
 		if (this._client) {
-			const btype = type+filterId+selValue;
+			const btype = type + filterId + selValue;
 			if (this._eventTypes[btype])
 				throw new Error("Only one listener per unique (filterId+setValue) is allowed");
-				this._client.send({
-						message: TINY_MESSAGES.ON,
-						type: btype,
-						ballancer: {
-							origType:type,
-							filterId,
-							selValue,
-							fnFilter:fnFilter.toString().match(/function[^{]+\{([\s\S]*)\}$/)[1]
-						}
-					}
-				);
-				super.on(btype, listener);
+			this._client.send({
+				message: TINY_MESSAGES.ON,
+				type: btype,
+				ballancer: {
+					origType: type,
+					filterId,
+					selValue,
+					fnFilter: fnFilter.toString().match(/function[^{]+\{([\s\S]*)\}$/)[1]
+				}
+			});
+			super.on(btype, listener);
 		}
-		function proxy (obj) {
+		function proxy(obj) {
 			if (selValue == fnFilter(obj))
 				listener(obj);
 		}
@@ -417,7 +414,7 @@ class Hook extends EventEmitter {
 
 		// lets use echo to get ready status when all the above is processed
 		this.once("hook::ready-internal", () => {
-			const readyevent = this.ready?"hook::reconnected":"hook::ready";
+			const readyevent = this.ready ? "hook::reconnected" : "hook::ready";
 			this.ready = true;
 			this.emit(readyevent);
 		});
@@ -437,10 +434,10 @@ class Hook extends EventEmitter {
 			client.send({
 				message: TINY_MESSAGES.PUSH_EMIT,
 				type: this.event
-			},data);
+			}, data);
 		}
 
-		function handlerSocket (bufferFn) {
+		function handlerSocket(bufferFn) {
 			client.socket.write(bufferFn());
 		}
 
@@ -458,19 +455,20 @@ class Hook extends EventEmitter {
 					client.name = msg.name;
 					break;
 				case TINY_MESSAGES.ON:
+				case TINY_MESSAGES.ONCE:
 					lhook.on(msg.type, handler);
 					if (msg.ballancer) {
-						const fnFilter = new Function ("obj", msg.ballancer.fnFilter);
+						const fnFilter = new Function("obj", msg.ballancer.fnFilter);
 						fnFilter._origin = handler;
 						const serviceHanlder = (obj) => {
 							// send ballanced event only if main event is not sending already
-							if (lhook.listeners(msg.type).length==0) {
-								if (fnFilter(obj)==msg.ballancer.selValue) {
+							if (lhook.listeners(msg.type).length == 0) {
+								if (fnFilter(obj) == msg.ballancer.selValue) {
 									this._chieldEmit(msg.type, obj);
 								}
 							}
 						};
-						serviceEvents[msg.type]={handler:serviceHanlder,type:msg.ballancer.origType};
+						serviceEvents[msg.type] = { handler: serviceHanlder, type: msg.ballancer.origType };
 						this.on(msg.ballancer.origType, serviceHanlder);
 					}
 					this.emit('hook::newListener', {
@@ -504,7 +502,7 @@ class Hook extends EventEmitter {
 					if (client.socket) {
 						// emit locally only if there are listeners, this is to no deserialize if this is not required
 						if (this.listeners(t).length || this.listenersAny().length)
-							EventEmitter.prototype.emit.call(this, t, data?JSON.parse(data.toString()):undefined);
+							EventEmitter.prototype.emit.call(this, t, data ? JSON.parse(data.toString()) : undefined);
 
 						// translate / pass this to child hooks
 						let cachedBuffer = null;
@@ -513,7 +511,7 @@ class Hook extends EventEmitter {
 								cachedBuffer = bufferConverter.serializeFast({
 									message: TINY_MESSAGES.PUSH_EMIT,
 									type: t
-								},data);
+								}, data);
 							}
 							return cachedBuffer;
 						});
@@ -530,10 +528,10 @@ class Hook extends EventEmitter {
 		let connections = 0;
 		let local;
 
-		cb = cb || (() => {});
+		cb = cb || (() => { });
 
 		if (!this.childrenSpawn)
-			this.childrenSpawn={};
+			this.childrenSpawn = {};
 
 		if (!this.ready)
 			return cb(new Error('Cannot spawn child hooks without being ready'));
@@ -612,7 +610,7 @@ class Hook extends EventEmitter {
 				//
 				mysun._hook.once('hook::ready', () => next(null));
 			} else {
-				this.emit("hook::fork",{script:hookBin, name: hook.name, params:cliOptions(hook)});
+				this.emit("hook::fork", { script: hookBin, name: hook.name, params: cliOptions(hook) });
 			}
 			this.once(`${hook.name}::hook::ready`, () => {
 				connections++;
@@ -640,14 +638,14 @@ class Hook extends EventEmitter {
 				cachedBuffer = bufferConverter.serializeNormal({
 					message: TINY_MESSAGES.PUSH_EMIT,
 					type
-				},data);
+				}, data);
 			}
 			return cachedBuffer;
 		});
 	}
 }
 
-function hookFork (fork) {
+function hookFork(fork) {
 	// only master (listening hook) is allowed to fork
 	if (!this.listening)
 		return;
@@ -689,13 +687,13 @@ function ForkAndBind(fork) {
 	let child = child_process.fork(fork.script, fork.params);
 	const clients = {};
 
-	this.emit('hook::fork-start', {name:fork.name, pid:child.pid} );
+	this.emit('hook::fork-start', { name: fork.name, pid: child.pid });
 	this.children[child.pid] = child;
 
 	child.on("message", (msg) => {
 		let client = clients[msg.name];
 		if (client) {
-			client(msg.msg,msg.data);
+			client(msg.msg, msg.data);
 		} else if (msg.message === "tinyhook") {
 			if (msg.msg.message === TINY_MESSAGES.HELLO) {
 				client = new Client(msg.name);
@@ -714,15 +712,15 @@ function ForkAndBind(fork) {
 
 		child = null;
 
-		this.emit('hook::fork-exit', {name:fork.name, exitcode});
+		this.emit('hook::fork-exit', { name: fork.name, exitcode });
 
 		// abnormal termination
-		if (exitcode!==0) {
-			const lifet = 0.0001*(Date.now() - start);
+		if (exitcode !== 0) {
+			const lifet = 0.0001 * (Date.now() - start);
 			// looks like recoverable error, lets restart
 			setTimeout(() => {
 				ForkAndBind.call(this, fork);
-			}, Math.round(restartCount/lifet));
+			}, Math.round(restartCount / lifet));
 		}
 	});
 }
