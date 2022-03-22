@@ -1,4 +1,4 @@
-const { argv } = require('yargs');
+const argv = require('minimist')(process.argv);
 const { Hook } = require('../hook');
 
 if (process.send) {
