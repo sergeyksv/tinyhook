@@ -89,6 +89,11 @@ for keeping process running (does restart). 'hook::fork' receives data in form
 
 ## Revision history and compatibility notices
 
+### 0.6 - Update dependencies and replace yargs to minimist
+
+* Replace yargs by minimist
+* Update deps
+
 ### 0.5 - Update dependencies.
 
 * Update dependencies to address vulnerabilities
