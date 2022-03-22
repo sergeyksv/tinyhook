@@ -26,7 +26,7 @@
   ],
   "main": "./hook",
   "engines": {
-    "node": ">= v8.x"
+    "node": ">= v10.x"
   },
   "dependencies": {
     "eventemitter2": "^6.4.5",

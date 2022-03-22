@@ -93,6 +93,7 @@ for keeping process running (does restart). 'hook::fork' receives data in form
 
 * Replace yargs by minimist
 * Update deps
+* Minimum version of Node.js v10
 
 ### 0.5 - Update dependencies.
 
