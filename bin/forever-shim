@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { argv } = require('yargs');
+const argv = require('minimist')(process.argv);
 
 let hookPath;
 

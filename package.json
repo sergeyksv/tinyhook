@@ -26,18 +26,18 @@
   ],
   "main": "./hook",
   "engines": {
-    "node": ">= v8.x"
+    "node": ">= v10.x"
   },
   "dependencies": {
-    "eventemitter2": "^6.3.1",
-    "safe": "^0.4.6",
-    "yargs": "^15.3.1"
+    "eventemitter2": "^6.4.5",
+    "safe": "^0.4.7",
+    "minimist": "^1.2.6"
   },
   "scripts": {
     "test": "mocha --exit --allow-uncaught test/*.js"
   },
   "devDependencies": {
-    "eslint": "^7.0.0-alpha.3",
-    "mocha": "^7.1.1"
+    "eslint": "^8.11.0",
+    "mocha": "^9.2.2"
   }
 }
